@@ -9,6 +9,7 @@ interface YTPlayer {
   getPlayerState(): number;
   getCurrentTime(): number;
   getDuration(): number;
+  getIframe(): HTMLIFrameElement;
   destroy(): void;
 }
 
@@ -65,14 +66,15 @@ export class YouTubeController {
   private cinema = false;
   private state: HeroMediaState = 'loading';
   private autoplayCheck = 0;
+  private firstFrameTimer = 0;
   private loaderRetryUsed = false;
+  private ambientRecoveryUsed = false;
+  private intentionalPause = false;
   private wrapper: HTMLElement;
-  private poster: HTMLElement;
   private listeners = new Set<() => void>();
 
-  constructor({ mountId, wrapperId, posterId }: { mountId: string; wrapperId: string; posterId: string }) {
+  constructor({ mountId, wrapperId }: { mountId: string; wrapperId: string }) {
     this.wrapper = document.querySelector<HTMLElement>(`#${wrapperId}`)!;
-    this.poster = document.querySelector<HTMLElement>(`#${posterId}`)!;
     this.ready = new Promise<boolean>((resolve) => { this.resolveReady = resolve; });
     this.setState('loading');
     window.setTimeout(() => this.finishReady(false), 5500);
@@ -82,16 +84,13 @@ export class YouTubeController {
   private setState(state: HeroMediaState): void {
     this.state = state;
     this.wrapper.dataset.mediaState = state;
-    const movingVideoVisible = state === 'autoplaying' || state === 'cinema';
-    const fallbackVisible = state === 'autoplay-blocked' || state === 'failed' || state === 'loading';
-    this.poster.classList.toggle('is-retired', movingVideoVisible);
-    if (fallbackVisible) this.poster.classList.remove('is-retired');
     this.emit();
   }
 
   private attemptMutedPlayback(): void {
     if (!this.player || this.state === 'failed') return;
     window.clearTimeout(this.autoplayCheck);
+    this.intentionalPause = false;
     this.player.mute();
     this.player.setVolume(0);
     this.player.playVideo();
@@ -119,10 +118,12 @@ export class YouTubeController {
           modestbranding: 1,
           playsinline: 1,
           rel: 0,
+          enablejsapi: 1,
           origin: window.location.origin,
         },
         events: {
-          onReady: () => {
+          onReady: (event: YTPlayerEvent) => {
+            event.target.getIframe().allow = 'autoplay; encrypted-media; fullscreen; picture-in-picture';
             this.setState('ready');
             this.attemptMutedPlayback();
           },
@@ -134,10 +135,17 @@ export class YouTubeController {
                 event.target.setVolume(0);
               }
               this.setState(this.cinema ? 'cinema' : 'autoplaying');
-              this.finishReady(true);
+              if (!this.readySettled && !this.firstFrameTimer) {
+                this.firstFrameTimer = window.setTimeout(() => this.finishReady(true), 250);
+              }
             } else if (event.data === YT.PlayerState.ENDED && !this.cinema) {
               event.target.seekTo(0, true);
               event.target.mute();
+              event.target.playVideo();
+            } else if (event.data === YT.PlayerState.PAUSED && !this.cinema && !this.intentionalPause && !this.ambientRecoveryUsed) {
+              this.ambientRecoveryUsed = true;
+              event.target.mute();
+              event.target.setVolume(0);
               event.target.playVideo();
             }
             // BUFFERING deliberately preserves the last visible layer.
@@ -173,8 +181,8 @@ export class YouTubeController {
     this.attemptMutedPlayback();
   }
 
-  play(): void { this.player?.playVideo(); }
-  pause(): void { this.player?.pauseVideo(); }
+  play(): void { this.intentionalPause = false; this.player?.playVideo(); }
+  pause(): void { this.intentionalPause = true; this.player?.pauseVideo(); }
   mute(): void { this.player?.mute(); this.emit(); }
   unmute(): void { this.player?.unMute(); this.emit(); }
   isMuted(): boolean { return this.player?.isMuted() ?? true; }
@@ -185,6 +193,7 @@ export class YouTubeController {
 
   enterCinema(): void {
     this.cinema = true;
+    this.intentionalPause = false;
     this.setState('cinema');
     this.player?.unMute();
     this.player?.setVolume(100);
@@ -194,12 +203,14 @@ export class YouTubeController {
 
   leaveCinema(): void {
     this.cinema = false;
+    this.intentionalPause = false;
     this.setState('ready');
     this.player?.mute();
     this.player?.setVolume(0);
     this.player?.seekTo(0, true);
     this.player?.playVideo();
     window.clearTimeout(this.autoplayCheck);
+    window.clearTimeout(this.firstFrameTimer);
     this.autoplayCheck = window.setTimeout(() => {
       if (!this.isPlaying()) this.setState('autoplay-blocked');
     }, 1800);

@@ -13,7 +13,20 @@
   font-display: swap;
 }
 :root { color: #111; background: #e9e8e3; font-family: 'Instrument Sans', sans-serif; font-synthesis: none; }
-* { box-sizing: border-box; }
+* {
+  box-sizing: border-box;
+  scrollbar-width: thin;
+  scrollbar-color: #6d6d6d transparent;
+}
+*::-webkit-scrollbar { width: 6px; height: 6px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  min-height: 3rem;
+  border-radius: 999px;
+  background: #6d6d6d;
+}
+*::-webkit-scrollbar-thumb:hover { background: #202020; }
+*::-webkit-scrollbar-corner { background: transparent; }
 html { background: #e9e8e3; }
 body { margin: 0; overflow-x: hidden; }
 button, a { font: inherit; }
@@ -24,7 +37,6 @@ button { color: inherit; }
 .menu-trigger { border: 0; background: transparent; cursor: pointer; font-size: clamp(.9rem, 1.2vw, 1.15rem); }
 .hero-stage { min-height: calc(100dvh - 5rem); display: grid; place-items: center; }
 .hero-media { position: relative; width: min(72vw, 860px); aspect-ratio: 16 / 9; overflow: hidden; background: #181818; }
-.hero-poster { width: 100%; height: 100%; object-fit: cover; filter: saturate(.82) contrast(1.04); }
 .hero-shade { position: absolute; inset: 0; background: linear-gradient(180deg, transparent 25%, rgba(0,0,0,.17)); }
 .hero-title { position: absolute; z-index: 1; left: 7%; bottom: 7%; margin: 0; color: #fff; font-size: clamp(2rem, 5.4vw, 5rem); line-height: .83; letter-spacing: -.065em; font-weight: 700; }
 .watch-button { position: absolute; z-index: 2; inset: 50% auto auto 50%; translate: -50% -50%; width: 4rem; aspect-ratio: 1; border: 1px solid rgba(255,255,255,.8); border-radius: 50%; background: rgba(0,0,0,.35); color: #fff; cursor: pointer; }
@@ -152,27 +164,29 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
   transform-origin: center;
   backface-visibility: hidden;
 }
-.hero-poster, .youtube-player, .youtube-player > div, .youtube-player iframe, .hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
-.hero-poster {
-  z-index: 1;
-  object-fit: cover;
-  opacity: 1;
-  visibility: visible;
-  pointer-events: none;
-  transition: opacity .45s ease, visibility 0s linear 0s;
-}
-.hero-poster.is-retired { opacity: 0; visibility: hidden; transition: opacity .45s ease, visibility 0s linear .45s; }
+.youtube-player, .youtube-player > div, .hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
 .youtube-player {
-  z-index: 0;
+  z-index: 1;
   display: block;
   overflow: hidden;
   opacity: 1;
   visibility: visible;
   pointer-events: none;
 }
-.youtube-player[data-media-state='autoplaying'],
-.youtube-player[data-media-state='cinema'] { opacity: 1; visibility: visible; }
-.youtube-player iframe { display: block; border: 0; opacity: 1; visibility: visible; scale: 1.01; }
+.youtube-player iframe {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-width: 100%;
+  min-height: 100%;
+  border: 0;
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, -50%) scale(1.01);
+}
 .hero-shade { z-index: 2; background: linear-gradient(180deg, rgba(0,0,0,.04) 12%, rgba(0,0,0,.18) 100%); pointer-events: none; }
 .hero-title {
   z-index: 3;
@@ -211,8 +225,12 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
   transform: none !important;
   background: #000;
   .youtube-player { z-index: 1; opacity: 1; visibility: visible; }
-  .youtube-player iframe { scale: 1; }
-  .hero-title, .hero-shade, .watch-button, .hero-poster { display: none; }
+  .youtube-player iframe {
+    width: max(100vw, calc(100dvh * 16 / 9));
+    height: max(100dvh, calc(100vw * 9 / 16));
+    transform: translate(-50%, -50%);
+  }
+  .hero-title, .hero-shade, .watch-button { display: none; }
   .cinema-controls { display: block; }
   .cinema-controls button, .cinema-controls input { pointer-events: auto; }
   &.controls-visible .cinema-controls, .cinema-controls:focus-within { opacity: 1; }
@@ -302,11 +320,11 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
   &.is-active { flex-grow: 1.5; height: min(58vh, 560px); }
   &.is-muted { flex-grow: 1; height: min(42vh, 410px); }
 }
-.menu-card__label-mask { position: absolute; left: 0; bottom: calc(100% + .6rem); z-index: 3; display: block; width: 100%; height: 1.4em; min-height: 1.4em; overflow: hidden; }
-.menu-card__label { position: relative; z-index: 1; display: block; opacity: 0; transform: translateY(100%); font-size: .7rem; font-weight: 600; line-height: 1.2; letter-spacing: .05em; white-space: nowrap; }
+.menu-card__label { position: absolute; left: 50%; bottom: calc(100% + .65rem); z-index: 20; display: block; opacity: 0; visibility: hidden; transform: translate(-50%, 6px); color: #000; font-size: .7rem; font-weight: 600; line-height: 1.2; letter-spacing: .05em; white-space: nowrap; pointer-events: none; transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s; }
+.menu-card.is-active .menu-card__label { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .18s ease, transform .18s ease, visibility 0s; }
 .menu-card__image { display: block; width: 100%; height: 100%; overflow: hidden; background: #ddd; }
 .menu-card img { width: 100%; height: 100%; object-fit: cover; }
-.menu-card:focus-visible .menu-card__label { opacity: 1 !important; visibility: visible !important; transform: translateY(0) !important; }
+.menu-card:focus-visible .menu-card__label { opacity: 1 !important; visibility: visible !important; transform: translate(-50%, 0) !important; }
 
 // Minimal one-page targets
 .placeholder-section {
@@ -341,8 +359,7 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
     scale: .96;
     scroll-snap-align: center;
     transition: opacity .25s ease, scale .25s ease;
-    > .menu-card__label-mask { position: static; display: block; width: 100%; height: auto; overflow: visible; margin-bottom: .55rem; }
-    .menu-card__label { opacity: 1; transform: none; font-size: .8rem; line-height: 1.2; }
+    > .menu-card__label { position: static; display: block; opacity: 1; visibility: visible; transform: none; margin-bottom: .55rem; font-size: .8rem; line-height: 1.2; }
     &:active { scale: .98; }
     &.is-near-center { opacity: 1; scale: 1; }
   }

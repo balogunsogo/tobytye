@@ -24,7 +24,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </div>
 
   <main class="site-shell" id="site-content">
-    <section class="hero" id="home" aria-labelledby="hero-title">
+    <section class="hero" id="home">
       <header class="site-header" id="site-header">
         <a class="brand-link" href="#home" aria-label="Toby&Tye home">${logo}</a>
         <button class="menu-trigger" id="menu-trigger" type="button" aria-expanded="false" aria-controls="site-menu">
@@ -33,10 +33,8 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       </header>
       <div class="hero-stage">
         <div class="hero-media" id="hero-media">
-          <img class="hero-poster" id="hero-poster" src="https://i.ytimg.com/vi/SaOwutdzd24/maxresdefault.jpg" alt="Toby&Tye brand film poster" />
-          <div class="youtube-player" id="youtube-player" aria-hidden="true"><div id="youtube-player-mount"></div></div>
+          <div class="youtube-player" id="youtube-player"><div id="youtube-player-mount"></div></div>
           <div class="hero-shade" aria-hidden="true"></div>
-          <h1 class="hero-title" id="hero-title">more than<br />just a gadget<br />repair company</h1>
           <button class="watch-button" id="watch-button" type="button" aria-label="Watch video with sound"><span aria-hidden="true">▶</span><b>WATCH</b></button>
           <div class="cinema-controls" id="cinema-controls" aria-hidden="true">
             <button class="cinema-close" id="cinema-close" type="button" aria-label="Close cinema mode"><span aria-hidden="true">╳</span> CLOSE</button>
@@ -72,13 +70,13 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="site-menu__header">${logo}<button class="menu-close" id="menu-close" type="button" aria-label="Close navigation menu"><span aria-hidden="true">╳</span> CLOSE</button></div>
       <div class="site-menu__rule" aria-hidden="true"></div>
       <div class="menu-cards" id="menu-cards">
-        ${[['WHO WE ARE', 'who-we-are'], ['WHAT WE DO', 'what-we-do'], ['WORK', 'work'], ['CONTACT', 'contact']].map(([label, id], index) => `<a class="menu-card" href="#${id}" data-menu-card><span class="menu-card__label-mask"><span class="menu-card__label">${label}</span></span><span class="menu-card__image"><img src="${asset(`Menu ${index + 1}.png`)}" alt="" loading="lazy" decoding="async" /></span></a>`).join('')}
+        ${[['WHO WE ARE', 'who-we-are'], ['WHAT WE DO', 'what-we-do'], ['WORK', 'work'], ['CONTACT', 'contact']].map(([label, id], index) => `<a class="menu-card" href="#${id}" data-menu-card><span class="menu-card__label">${label}</span><span class="menu-card__image"><img src="${asset(`Menu ${index + 1}.png`)}" alt="" loading="lazy" decoding="async" /></span></a>`).join('')}
       </div>
     </div>
   </nav>
 `;
 
-const player = new YouTubeController({ mountId: 'youtube-player-mount', wrapperId: 'youtube-player', posterId: 'hero-poster' });
+const player = new YouTubeController({ mountId: 'youtube-player-mount', wrapperId: 'youtube-player' });
 const menu = initMenu(player);
 const cinema = initCinemaMode(player, () => menu.isOpen());
 const heroScroll = initHeroScroll(player);
