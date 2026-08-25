@@ -3,6 +3,8 @@ import Flip from 'gsap/Flip';
 import type { YouTubeController } from './youtube-player';
 import { lockScroll, setPageInert, trapFocus } from './accessibility';
 
+type MenuState = 'closed' | 'opening' | 'open' | 'closing';
+
 export function initMenu(player: YouTubeController) {
   const panel = document.querySelector<HTMLElement>('#site-menu')!;
   const background = panel.querySelector<HTMLElement>('.site-menu__background')!;
@@ -20,6 +22,10 @@ export function initMenu(player: YouTubeController) {
   let cinemaIsOpen = () => false;
   let activeIndex = -1;
   let mobileObserver: IntersectionObserver | null = null;
+
+  const setMenuState = (state: MenuState) => { panel.dataset.menuState = state; };
+  panel.inert = true;
+  gsap.set(panel, { autoAlpha: 0, pointerEvents: 'none' });
 
   const setActiveCard = (index: number) => {
     if (index === activeIndex || !isDesktop.matches) return;
@@ -39,6 +45,8 @@ export function initMenu(player: YouTubeController) {
     if (open || animating || cinemaIsOpen()) return;
     open = true;
     animating = true;
+    setMenuState('opening');
+    panel.inert = false;
     restoreScroll = lockScroll();
     setPageInert(true);
     player.pause();
@@ -46,8 +54,13 @@ export function initMenu(player: YouTubeController) {
     trigger.setAttribute('aria-expanded', 'true');
     panel.setAttribute('aria-hidden', 'false');
     panel.classList.add('is-open');
-    gsap.timeline({ onComplete: () => { animating = false; closeButton.focus(); } })
-      .set(panel, { visibility: 'visible' })
+    gsap.timeline({ onComplete: () => {
+      animating = false;
+      setMenuState('open');
+      gsap.set(panel, { pointerEvents: 'auto' });
+      closeButton.focus();
+    } })
+      .set(panel, { autoAlpha: 1, pointerEvents: 'none' })
       .set(background, { scaleX: 0, transformOrigin: 'left center' })
       .set([header, cards], { opacity: 0 })
       .set(rule, { scaleX: 0, transformOrigin: 'left center' })
@@ -60,13 +73,17 @@ export function initMenu(player: YouTubeController) {
   const closeMenu = (destination?: string) => {
     if (!open || animating) return;
     animating = true;
+    setMenuState('closing');
+    panel.inert = true;
+    gsap.set(panel, { pointerEvents: 'none' });
     gsap.timeline({
       onComplete: () => {
         open = false;
         animating = false;
         panel.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
-        gsap.set(panel, { visibility: 'hidden' });
+        setMenuState('closed');
+        gsap.set(panel, { autoAlpha: 0, pointerEvents: 'none' });
         trigger.setAttribute('aria-expanded', 'false');
         setPageInert(false);
         restoreScroll?.();

@@ -16,6 +16,7 @@ export function initCreativeScene() {
   let orbitProgress = 0;
   let tickerActive = false;
   let lastTick = 0;
+  let lastViewportWidth = window.innerWidth;
   let intro: gsap.core.Timeline | null = null;
 
   const setX = cards.map((card) => gsap.quickSetter(card, 'x', 'px'));
@@ -28,15 +29,17 @@ export function initCreativeScene() {
     const mobile = matchMedia('(max-width: 700px)').matches;
     const width = composition.getBoundingClientRect().width;
     return {
-      radiusX: Math.min(mobile ? 82 : 205, width * (mobile ? 0.25 : 0.31)),
-      radiusY: mobile ? 7 : 16,
-      radiusZ: mobile ? 62 : 145,
-      duration: mobile ? 12 : 10,
+      radiusX: mobile ? Math.min(window.innerWidth * 0.24, 95) : Math.min(205, width * 0.31),
+      radiusY: mobile ? 8 : 16,
+      radiusZ: mobile ? 110 : 145,
+      minScale: mobile ? 0.72 : 0.88,
+      maxScale: mobile ? 1 : 1.03,
+      duration: 10,
     };
   };
 
   const pointAt = (progress: number, index: number): OrbitPoint => {
-    const { radiusX, radiusY, radiusZ } = metrics();
+    const { radiusX, radiusY, radiusZ, minScale, maxScale } = metrics();
     const phase = index * ((Math.PI * 2) / cards.length);
     const angle = progress * Math.PI * 2 + phase;
     const z = Math.sin(angle) * radiusZ;
@@ -45,7 +48,7 @@ export function initCreativeScene() {
       x: Math.cos(angle) * radiusX,
       y: Math.sin(angle * 2) * radiusY,
       z,
-      scale: 0.88 + depth * 0.15,
+      scale: minScale + depth * (maxScale - minScale),
       opacity: 0.86 + depth * 0.14,
     };
   };
@@ -151,14 +154,19 @@ export function initCreativeScene() {
       intro?.play();
     }
     syncOrbitState();
-  }, { threshold: 0.18 });
+  }, { threshold: 0.1, rootMargin: '15% 0px 15% 0px' });
 
   const onOverlay = (event: Event) => {
     overlayOpen = Boolean((event as CustomEvent<{ open: boolean }>).detail.open);
     syncOrbitState();
   };
   const onVisibility = () => syncOrbitState();
-  const onResize = () => renderOrbit(orbitProgress);
+  const onResize = () => {
+    const nextWidth = window.innerWidth;
+    if (Math.abs(nextWidth - lastViewportWidth) < 8) return;
+    lastViewportWidth = nextWidth;
+    renderOrbit(orbitProgress);
+  };
   const onReduced = () => {
     entered = reduced.matches;
     prepare();
@@ -169,7 +177,7 @@ export function initCreativeScene() {
   };
 
   prepare();
-  observer.observe(section);
+  observer.observe(composition);
   window.addEventListener('site-overlay', onOverlay);
   window.addEventListener('resize', onResize, { passive: true });
   document.addEventListener('visibilitychange', onVisibility);

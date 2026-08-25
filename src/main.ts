@@ -64,7 +64,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section class="placeholder-section" id="contact"><p>03 / CONTACT</p><h2>Let’s make an impact.</h2><a href="mailto:hello@tobyandtye.com">hello@tobyandtye.com</a></section>
   </main>
 
-  <nav class="site-menu" id="site-menu" aria-label="Primary navigation" aria-hidden="true" role="dialog" aria-modal="true">
+  <nav class="site-menu" id="site-menu" data-menu-state="closed" aria-label="Primary navigation" aria-hidden="true" role="dialog" aria-modal="true" inert>
     <div class="site-menu__background" aria-hidden="true"></div>
     <div class="site-menu__content">
       <div class="site-menu__header">${logo}<button class="menu-close" id="menu-close" type="button" aria-label="Close navigation menu"><span aria-hidden="true">╳</span> CLOSE</button></div>
