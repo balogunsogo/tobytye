@@ -5,6 +5,7 @@ import { lockScroll, setPageInert, trapFocus } from './accessibility';
 
 export function initMenu(player: YouTubeController) {
   const panel = document.querySelector<HTMLElement>('#site-menu')!;
+  const background = panel.querySelector<HTMLElement>('.site-menu__background')!;
   const trigger = document.querySelector<HTMLButtonElement>('#menu-trigger')!;
   const closeButton = document.querySelector<HTMLButtonElement>('#menu-close')!;
   const rule = panel.querySelector<HTMLElement>('.site-menu__rule')!;
@@ -30,7 +31,7 @@ export function initMenu(player: YouTubeController) {
     Flip.from(state, { duration: 0.48, ease: 'power3.out', absolute: false });
     cards.forEach((card, cardIndex) => {
       gsap.to(card.querySelector('img'), { scale: cardIndex === index ? 1.045 : 1, opacity: index >= 0 && cardIndex !== index ? 0.72 : 1, duration: 0.4, ease: 'power2.out' });
-      gsap.to(card.querySelector(':scope > span'), { yPercent: cardIndex === index ? 0 : 110, opacity: cardIndex === index ? 1 : 0, duration: 0.35, ease: 'power3.out' });
+      gsap.to(card.querySelector('.menu-card__label'), { yPercent: cardIndex === index ? 0 : 110, opacity: cardIndex === index ? 1 : 0, duration: 0.35, ease: 'power3.out' });
     });
   };
 
@@ -46,13 +47,14 @@ export function initMenu(player: YouTubeController) {
     panel.setAttribute('aria-hidden', 'false');
     panel.classList.add('is-open');
     gsap.timeline({ onComplete: () => { animating = false; closeButton.focus(); } })
-      .set(panel, { xPercent: -100, visibility: 'visible' })
+      .set(panel, { visibility: 'visible' })
+      .set(background, { scaleX: 0, transformOrigin: 'left center' })
       .set([header, cards], { opacity: 0 })
       .set(rule, { scaleX: 0, transformOrigin: 'left center' })
-      .to(panel, { xPercent: 0, duration: 0.62, ease: 'power4.inOut' })
-      .to(header, { opacity: 1, duration: 0.22 }, 0.36)
-      .to(rule, { scaleX: 1, duration: 0.45, ease: 'power3.out' }, 0.42)
-      .fromTo(cards, { y: '18vh', opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.055, ease: 'power3.out' }, 0.46);
+      .to(background, { scaleX: 1, duration: 0.62, ease: 'power4.inOut' })
+      .to(header, { opacity: 1, duration: 0.24, ease: 'power2.out' }, 0.16)
+      .to(rule, { scaleX: 1, duration: 0.45, ease: 'power3.out' }, 0.3)
+      .fromTo(cards, { y: '18vh', opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.055, ease: 'power3.out' }, 0.38);
   };
 
   const closeMenu = (destination?: string) => {
@@ -64,6 +66,7 @@ export function initMenu(player: YouTubeController) {
         animating = false;
         panel.classList.remove('is-open');
         panel.setAttribute('aria-hidden', 'true');
+        gsap.set(panel, { visibility: 'hidden' });
         trigger.setAttribute('aria-expanded', 'false');
         setPageInert(false);
         restoreScroll?.();
@@ -86,7 +89,7 @@ export function initMenu(player: YouTubeController) {
       .to(cards, { y: '7vh', opacity: 0, duration: 0.24, stagger: 0.025, ease: 'power2.in' })
       .to(rule, { scaleX: 0, duration: 0.2, ease: 'power2.in' }, 0.04)
       .to(header, { opacity: 0, duration: 0.16 }, 0.08)
-      .to(panel, { xPercent: -100, duration: 0.46, ease: 'power4.inOut' }, 0.2);
+      .to(background, { scaleX: 0, transformOrigin: 'left center', duration: 0.42, ease: 'power4.inOut' }, 0.16);
   };
 
   const onKeydown = (event: KeyboardEvent) => {
@@ -103,6 +106,10 @@ export function initMenu(player: YouTubeController) {
     mobileObserver?.disconnect();
     cards.forEach((card) => card.classList.remove('is-near-center'));
     if (isDesktop.matches) return;
+    activeIndex = -1;
+    cards.forEach((card) => card.classList.remove('is-active', 'is-muted'));
+    gsap.set(cards.map((card) => card.querySelector('img')), { clearProps: 'transform,opacity' });
+    gsap.set(cards.map((card) => card.querySelector('.menu-card__label')), { clearProps: 'transform,opacity' });
     mobileObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => entry.target.classList.toggle('is-near-center', entry.isIntersecting));
     }, { root: row, rootMargin: '-36% 0px -36% 0px', threshold: 0.01 });

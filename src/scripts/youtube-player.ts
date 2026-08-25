@@ -15,7 +15,12 @@ interface YTPlayerEvent { target: YTPlayer }
 interface YTErrorEvent { data: number }
 interface YTNamespace {
   Player: new (elementId: string, options: Record<string, unknown>) => YTPlayer;
-  PlayerState: { PLAYING: number; PAUSED: number; ENDED: number };
+  PlayerState: {
+    ENDED: number;
+    PLAYING: number;
+    PAUSED: number;
+    BUFFERING: number;
+  };
 }
 
 declare global {
@@ -24,6 +29,10 @@ declare global {
     onYouTubeIframeAPIReady?: () => void;
   }
 }
+
+export type HeroMediaState = 'loading' | 'ready' | 'autoplaying' | 'autoplay-blocked' | 'cinema' | 'failed';
+
+const VIDEO_ID = 'SaOwutdzd24';
 
 const loadYouTubeAPI = (): Promise<YTNamespace> => new Promise((resolve, reject) => {
   if (window.YT?.Player) {
@@ -53,23 +62,47 @@ export class YouTubeController {
   private resolveReady!: (ready: boolean) => void;
   private readySettled = false;
   private cinema = false;
-  private mount: HTMLElement;
+  private state: HeroMediaState = 'loading';
+  private autoplayCheck = 0;
+  private loaderRetryUsed = false;
+  private wrapper: HTMLElement;
   private poster: HTMLElement;
   private listeners = new Set<() => void>();
 
-  constructor({ mountId, posterId }: { mountId: string; posterId: string }) {
-    this.mount = document.querySelector<HTMLElement>(`#${mountId}`)!;
+  constructor({ mountId, wrapperId, posterId }: { mountId: string; wrapperId: string; posterId: string }) {
+    this.wrapper = document.querySelector<HTMLElement>(`#${wrapperId}`)!;
     this.poster = document.querySelector<HTMLElement>(`#${posterId}`)!;
     this.ready = new Promise<boolean>((resolve) => { this.resolveReady = resolve; });
+    this.setState('loading');
     window.setTimeout(() => this.finishReady(false), 5500);
     void this.create(mountId);
+  }
+
+  private setState(state: HeroMediaState): void {
+    this.state = state;
+    this.wrapper.dataset.mediaState = state;
+    const movingVideoVisible = state === 'autoplaying' || state === 'cinema';
+    const fallbackVisible = state === 'autoplay-blocked' || state === 'failed' || state === 'loading';
+    this.poster.classList.toggle('is-retired', movingVideoVisible);
+    if (fallbackVisible) this.poster.classList.remove('is-retired');
+    this.emit();
+  }
+
+  private attemptMutedPlayback(): void {
+    if (!this.player || this.state === 'failed') return;
+    window.clearTimeout(this.autoplayCheck);
+    this.player.mute();
+    this.player.playVideo();
+    this.autoplayCheck = window.setTimeout(() => {
+      if (!this.cinema && !this.isPlaying()) this.setState('autoplay-blocked');
+    }, 1800);
   }
 
   private async create(mountId: string): Promise<void> {
     try {
       const YT = await loadYouTubeAPI();
       this.player = new YT.Player(mountId, {
-        videoId: 'SaOwutdzd24',
+        videoId: VIDEO_ID,
         width: '100%',
         height: '100%',
         host: 'https://www.youtube-nocookie.com',
@@ -79,35 +112,39 @@ export class YouTubeController {
           disablekb: 1,
           fs: 0,
           iv_load_policy: 3,
+          loop: 1,
+          playlist: VIDEO_ID,
           modestbranding: 1,
           playsinline: 1,
           rel: 0,
           origin: window.location.origin,
         },
         events: {
-          onReady: (event: YTPlayerEvent) => {
-            event.target.mute();
-            event.target.playVideo();
-            this.mount.classList.add('is-ready');
+          onReady: () => {
+            this.setState('ready');
+            this.attemptMutedPlayback();
             this.finishReady(true);
           },
           onStateChange: (event: YTPlayerEvent & { data: number }) => {
             if (event.data === YT.PlayerState.PLAYING) {
-              this.poster.classList.add('is-hidden');
+              window.clearTimeout(this.autoplayCheck);
+              this.setState(this.cinema ? 'cinema' : 'autoplaying');
             } else if (event.data === YT.PlayerState.ENDED && !this.cinema) {
               event.target.seekTo(0, true);
+              event.target.mute();
               event.target.playVideo();
             }
+            // BUFFERING deliberately preserves the last visible layer.
             this.emit();
           },
           onError: (_event: YTErrorEvent) => {
-            this.mount.classList.add('has-error');
+            this.setState('failed');
             this.finishReady(false);
           },
         },
       });
     } catch {
-      this.mount.classList.add('has-error');
+      this.setState('failed');
       this.finishReady(false);
     }
   }
@@ -124,6 +161,12 @@ export class YouTubeController {
     return () => this.listeners.delete(listener);
   }
 
+  retryMutedAutoplay(): void {
+    if (this.loaderRetryUsed || !this.player || this.state === 'failed') return;
+    this.loaderRetryUsed = true;
+    this.attemptMutedPlayback();
+  }
+
   play(): void { this.player?.playVideo(); }
   pause(): void { this.player?.pauseVideo(); }
   mute(): void { this.player?.mute(); this.emit(); }
@@ -133,21 +176,29 @@ export class YouTubeController {
   currentTime(): number { return this.player?.getCurrentTime() ?? 0; }
   duration(): number { return this.player?.getDuration() ?? 0; }
   seek(seconds: number): void { this.player?.seekTo(seconds, true); }
+
   enterCinema(): void {
     this.cinema = true;
-    this.player?.seekTo(0, true);
+    this.setState('cinema');
     this.player?.unMute();
+    this.player?.seekTo(0, true);
     this.player?.playVideo();
-    this.emit();
   }
+
   leaveCinema(): void {
     this.cinema = false;
+    this.setState('autoplaying');
     this.player?.mute();
     this.player?.seekTo(0, true);
     this.player?.playVideo();
-    this.emit();
+    window.clearTimeout(this.autoplayCheck);
+    this.autoplayCheck = window.setTimeout(() => {
+      if (!this.isPlaying()) this.setState('autoplay-blocked');
+    }, 1800);
   }
+
   destroy(): void {
+    window.clearTimeout(this.autoplayCheck);
     this.listeners.clear();
     this.player?.destroy();
     this.player = null;
