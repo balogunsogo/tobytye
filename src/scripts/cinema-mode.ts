@@ -63,6 +63,7 @@ export function initCinemaMode(player: YouTubeController, menuIsOpen: () => bool
     controls.setAttribute('aria-hidden', 'false');
     restoreScroll = lockScroll();
     setPageInert(true);
+    window.dispatchEvent(new CustomEvent('site-overlay', { detail: { open: true } }));
     player.enterCinema();
     syncControls();
     progressTimer = window.setInterval(updateProgress, 250);
@@ -85,6 +86,7 @@ export function initCinemaMode(player: YouTubeController, menuIsOpen: () => bool
     placeholder?.remove();
     placeholder = null;
     setPageInert(false);
+    window.dispatchEvent(new CustomEvent('site-overlay', { detail: { open: false } }));
     restoreScroll?.();
     restoreScroll = null;
     trigger.focus();

@@ -1,86 +1,147 @@
 import gsap from 'gsap';
 
+type OrbitPoint = { x: number; y: number; z: number; scale: number; opacity: number };
+
 export function initCreativeScene() {
   const section = document.querySelector<HTMLElement>('.creative')!;
+  const composition = section.querySelector<HTMLElement>('.card-composition')!;
   const cards = Array.from(section.querySelectorAll<HTMLElement>('[data-orbit-card]'));
   const headingLines = Array.from(section.querySelectorAll<HTMLElement>('h2 .line-mask > span'));
-  const copyLines = Array.from(section.querySelectorAll<HTMLElement>('.creative-copy .line-mask > span'));
+  const copyBlock = section.querySelector<HTMLElement>('.creative-copy .line-mask > span')!;
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let entered = false;
+  let assembled = false;
   let visible = false;
   let overlayOpen = false;
+  let orbitProgress = 0;
+  let tickerActive = false;
+  let lastTick = 0;
   let intro: gsap.core.Timeline | null = null;
-  const orbits: gsap.core.Timeline[] = [];
 
-  const layout = () => {
+  const setX = cards.map((card) => gsap.quickSetter(card, 'x', 'px'));
+  const setY = cards.map((card) => gsap.quickSetter(card, 'y', 'px'));
+  const setZ = cards.map((card) => gsap.quickSetter(card, 'z', 'px'));
+  const setScale = cards.map((card) => gsap.quickSetter(card, 'scale'));
+  const setOpacity = cards.map((card) => gsap.quickSetter(card, 'opacity'));
+
+  const metrics = () => {
     const mobile = matchMedia('(max-width: 700px)').matches;
-    return mobile
-      ? [
-          { x: -70, y: -42, z: -25, rotationY: 7, rotationZ: -5 },
-          { x: 6, y: 32, z: 46, rotationY: -6, rotationZ: 3 },
-          { x: 76, y: -18, z: 4, rotationY: 6, rotationZ: 5 },
-        ]
-      : [
-          { x: -190, y: -55, z: -55, rotationY: 11, rotationZ: -6 },
-          { x: 0, y: 58, z: 95, rotationY: -10, rotationZ: 3 },
-          { x: 205, y: -32, z: 18, rotationY: 9, rotationZ: 6 },
-        ];
+    const width = composition.getBoundingClientRect().width;
+    return {
+      radiusX: Math.min(mobile ? 82 : 205, width * (mobile ? 0.25 : 0.31)),
+      radiusY: mobile ? 7 : 16,
+      radiusZ: mobile ? 62 : 145,
+      duration: mobile ? 12 : 10,
+    };
+  };
+
+  const pointAt = (progress: number, index: number): OrbitPoint => {
+    const { radiusX, radiusY, radiusZ } = metrics();
+    const phase = index * ((Math.PI * 2) / cards.length);
+    const angle = progress * Math.PI * 2 + phase;
+    const z = Math.sin(angle) * radiusZ;
+    const depth = (z + radiusZ) / (radiusZ * 2);
+    return {
+      x: Math.cos(angle) * radiusX,
+      y: Math.sin(angle * 2) * radiusY,
+      z,
+      scale: 0.88 + depth * 0.15,
+      opacity: 0.86 + depth * 0.14,
+    };
+  };
+
+  const renderOrbit = (progress: number) => {
+    cards.forEach((card, index) => {
+      const point = pointAt(progress, index);
+      setX[index](point.x);
+      setY[index](point.y);
+      setZ[index](point.z);
+      setScale[index](point.scale);
+      setOpacity[index](point.opacity);
+      card.style.zIndex = String(1000 + Math.round(point.z));
+    });
+  };
+
+  const tick = () => {
+    const now = performance.now();
+    if (!lastTick) lastTick = now;
+    const elapsed = Math.min(64, now - lastTick);
+    lastTick = now;
+    orbitProgress = (orbitProgress + elapsed / (metrics().duration * 1000)) % 1;
+    renderOrbit(orbitProgress);
+  };
+
+  const stopOrbit = () => {
+    if (!tickerActive) return;
+    tickerActive = false;
+    gsap.ticker.remove(tick);
+    cards.forEach((card) => { card.style.willChange = 'auto'; });
+    lastTick = 0;
   };
 
   const syncOrbitState = () => {
-    const shouldPlay = visible && !overlayOpen && entered && !reduced.matches;
-    orbits.forEach((orbit) => shouldPlay ? orbit.play() : orbit.pause());
-  };
-
-  const createOrbits = () => {
-    orbits.splice(0).forEach((orbit) => orbit.kill());
-    const positions = layout();
-    cards.forEach((card, index) => {
-      const base = positions[index];
-      const directions = [-1, 1, -1];
-      const orbit = gsap.timeline({ repeat: -1, yoyo: true, paused: true })
-        .to(card, {
-          x: base.x + directions[index] * (index === 1 ? 36 : 58),
-          y: base.y + (index - 1) * 24,
-          z: base.z + directions[index] * 115,
-          rotationX: directions[index] * 4,
-          rotationY: base.rotationY - directions[index] * 8,
-          rotationZ: base.rotationZ + directions[index] * 3,
-          duration: 8.5 + index * 1.1,
-          ease: 'sine.inOut',
-          onUpdate: () => { card.style.zIndex = String(1000 + Math.round(Number(gsap.getProperty(card, 'z')))); },
-        });
-      orbits.push(orbit);
-    });
-    syncOrbitState();
+    const shouldPlay = visible && !overlayOpen && entered && assembled && !document.hidden && !reduced.matches;
+    if (shouldPlay && !tickerActive) {
+      tickerActive = true;
+      cards.forEach((card) => { card.style.willChange = 'transform, opacity'; });
+      lastTick = performance.now();
+      gsap.ticker.add(tick);
+    } else if (!shouldPlay) {
+      stopOrbit();
+    }
   };
 
   const prepare = () => {
     intro?.kill();
-    orbits.splice(0).forEach((orbit) => orbit.kill());
-    const positions = layout();
-    gsap.set([...headingLines, ...copyLines], { yPercent: reduced.matches ? 0 : 110 });
-    gsap.set(cards, { xPercent: -50, yPercent: -50, transformOrigin: '50% 50%', transformPerspective: 1100 });
+    stopOrbit();
+    assembled = false;
+    gsap.set(cards, {
+      xPercent: -50,
+      yPercent: -50,
+      x: 0,
+      y: 0,
+      z: 0,
+      scale: 0.84,
+      opacity: 1,
+      rotationX: 0,
+      rotationY: 0,
+      rotationZ: 0,
+      transformOrigin: '50% 50%',
+      transformPerspective: 1000,
+    });
+    gsap.set(headingLines, { yPercent: reduced.matches ? 0 : 110 });
+    gsap.set(copyBlock, { yPercent: reduced.matches ? 0 : 45, opacity: reduced.matches ? 1 : 0 });
+
     if (reduced.matches) {
-      cards.forEach((card, index) => gsap.set(card, { ...positions[index], rotationX: 0 }));
+      orbitProgress = 0;
+      renderOrbit(orbitProgress);
       entered = true;
+      assembled = true;
       return;
     }
-    gsap.set(cards, { x: 0, y: 0, z: (index: number) => index * -10, rotationX: 0, rotationY: 0, rotationZ: 0, scale: 0.86 });
-    intro = gsap.timeline({ paused: true, onComplete: createOrbits })
+
+    const assembledPoints = cards.map((_, index) => pointAt(0, index));
+    intro = gsap.timeline({
+      paused: true,
+      onComplete: () => {
+        orbitProgress = 0;
+        renderOrbit(orbitProgress);
+        assembled = true;
+        syncOrbitState();
+      },
+    })
       .to(headingLines, { yPercent: 0, duration: 0.72, stagger: 0.09, ease: 'power3.out' })
-      .to(cards, { scale: 1, duration: 0.35, stagger: 0.04, ease: 'power2.out' }, 0.16)
       .to(cards, {
-        x: (index: number) => positions[index].x,
-        y: (index: number) => positions[index].y,
-        z: (index: number) => positions[index].z,
-        rotationY: (index: number) => positions[index].rotationY,
-        rotationZ: (index: number) => positions[index].rotationZ,
-        duration: 1.2,
-        stagger: 0.08,
+        x: (index: number) => assembledPoints[index].x,
+        y: (index: number) => assembledPoints[index].y,
+        z: (index: number) => assembledPoints[index].z,
+        scale: (index: number) => assembledPoints[index].scale,
+        opacity: (index: number) => assembledPoints[index].opacity,
+        duration: 1.05,
+        stagger: 0.07,
         ease: 'power3.inOut',
-      }, 0.24)
-      .to(copyLines, { yPercent: 0, duration: 0.62, stagger: 0.06, ease: 'power3.out' }, 0.72);
+      }, 0.18)
+      .to(copyBlock, { yPercent: 0, opacity: 1, duration: 0.62, ease: 'power3.out' }, 0.72);
   };
 
   const observer = new IntersectionObserver(([entry]) => {
@@ -96,6 +157,8 @@ export function initCreativeScene() {
     overlayOpen = Boolean((event as CustomEvent<{ open: boolean }>).detail.open);
     syncOrbitState();
   };
+  const onVisibility = () => syncOrbitState();
+  const onResize = () => renderOrbit(orbitProgress);
   const onReduced = () => {
     entered = reduced.matches;
     prepare();
@@ -108,14 +171,18 @@ export function initCreativeScene() {
   prepare();
   observer.observe(section);
   window.addEventListener('site-overlay', onOverlay);
+  window.addEventListener('resize', onResize, { passive: true });
+  document.addEventListener('visibilitychange', onVisibility);
   reduced.addEventListener('change', onReduced);
 
   return {
     destroy: () => {
       observer.disconnect();
       intro?.kill();
-      orbits.forEach((orbit) => orbit.kill());
+      stopOrbit();
       window.removeEventListener('site-overlay', onOverlay);
+      window.removeEventListener('resize', onResize);
+      document.removeEventListener('visibilitychange', onVisibility);
       reduced.removeEventListener('change', onReduced);
     },
   };

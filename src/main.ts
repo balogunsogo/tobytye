@@ -34,7 +34,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
       <div class="hero-stage">
         <div class="hero-media" id="hero-media">
           <img class="hero-poster" id="hero-poster" src="https://i.ytimg.com/vi/SaOwutdzd24/maxresdefault.jpg" alt="Toby&Tye brand film poster" />
-          <div class="youtube-player" id="youtube-player" aria-hidden="true"></div>
+          <div class="youtube-player" id="youtube-player" aria-hidden="true"><div id="youtube-player-mount"></div></div>
           <div class="hero-shade" aria-hidden="true"></div>
           <h1 class="hero-title" id="hero-title">more than<br />just a gadget<br />repair company</h1>
           <button class="watch-button" id="watch-button" type="button" aria-label="Watch video with sound"><span aria-hidden="true">▶</span><b>WATCH</b></button>
@@ -58,7 +58,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="card-composition" aria-label="Selected creative work">
           ${[1, 2, 3].map((n) => `<img src="${asset(`Animated ${n}.png`)}" alt="Creative project artwork ${n}" loading="lazy" decoding="async" data-orbit-card />`).join('')}
         </div>
-        <p class="creative-copy"><span class="line-mask"><span>Built for brands that refuse to blend in, we combine creative</span></span><span class="line-mask"><span>vision with rigorous intelligence and help ambitious brands</span></span><span class="line-mask"><span>transform perception into lasting impact.</span></span></p>
+        <p class="creative-copy"><span class="line-mask"><span>Built for brands that refuse to blend in, we combine creative vision with rigorous intelligence and help ambitious brands transform perception into lasting impact.</span></span></p>
       </div>
     </section>
     <section class="placeholder-section" id="what-we-do"><p>01 / WHAT WE DO</p><h2>Ideas built to move.</h2></section>
@@ -67,15 +67,18 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   </main>
 
   <nav class="site-menu" id="site-menu" aria-label="Primary navigation" aria-hidden="true" role="dialog" aria-modal="true">
-    <div class="site-menu__header">${logo}<button class="menu-close" id="menu-close" type="button" aria-label="Close navigation menu"><span aria-hidden="true">╳</span> CLOSE</button></div>
-    <div class="site-menu__rule" aria-hidden="true"></div>
-    <div class="menu-cards" id="menu-cards">
-      ${[['WHO WE ARE', 'who-we-are'], ['WHAT WE DO', 'what-we-do'], ['WORK', 'work'], ['CONTACT', 'contact']].map(([label, id], index) => `<a class="menu-card" href="#${id}" data-menu-card><span>${label}</span><div class="menu-card__image"><img src="${asset(`Menu ${index + 1}.png`)}" alt="" loading="lazy" decoding="async" /></div></a>`).join('')}
+    <div class="site-menu__background" aria-hidden="true"></div>
+    <div class="site-menu__content">
+      <div class="site-menu__header">${logo}<button class="menu-close" id="menu-close" type="button" aria-label="Close navigation menu"><span aria-hidden="true">╳</span> CLOSE</button></div>
+      <div class="site-menu__rule" aria-hidden="true"></div>
+      <div class="menu-cards" id="menu-cards">
+        ${[['WHO WE ARE', 'who-we-are'], ['WHAT WE DO', 'what-we-do'], ['WORK', 'work'], ['CONTACT', 'contact']].map(([label, id], index) => `<a class="menu-card" href="#${id}" data-menu-card><span class="menu-card__label-mask"><span class="menu-card__label">${label}</span></span><span class="menu-card__image"><img src="${asset(`Menu ${index + 1}.png`)}" alt="" loading="lazy" decoding="async" /></span></a>`).join('')}
+      </div>
     </div>
   </nav>
 `;
 
-const player = new YouTubeController({ mountId: 'youtube-player', posterId: 'hero-poster' });
+const player = new YouTubeController({ mountId: 'youtube-player-mount', wrapperId: 'youtube-player', posterId: 'hero-poster' });
 const menu = initMenu(player);
 const cinema = initCinemaMode(player, () => menu.isOpen());
 const heroScroll = initHeroScroll(player);
@@ -84,6 +87,7 @@ menu.setCinemaOpen(cinema.isOpen);
 
 const appReady = async () => {
   await startLoader(player.ready);
+  player.retryMutedAutoplay();
   heroScroll.refresh();
   ScrollTrigger.refresh();
 };

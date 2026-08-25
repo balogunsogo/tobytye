@@ -22,13 +22,17 @@ export function setPageInert(inert: boolean): void {
 
 export function lockScroll(): () => void {
   const scrollY = window.scrollY;
+  const scrollbarWidth = Math.max(0, window.innerWidth - document.documentElement.clientWidth);
+  const previousPaddingRight = document.body.style.paddingRight;
   document.body.style.position = 'fixed';
   document.body.style.top = `-${scrollY}px`;
   document.body.style.width = '100%';
+  if (scrollbarWidth) document.body.style.paddingRight = `${scrollbarWidth}px`;
   return () => {
     document.body.style.position = '';
     document.body.style.top = '';
     document.body.style.width = '';
+    document.body.style.paddingRight = previousPaddingRight;
     window.scrollTo(0, scrollY);
   };
 }
