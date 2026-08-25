@@ -37,7 +37,6 @@ export async function startLoader(playerReady: Promise<boolean>): Promise<void> 
     ...sceneImages.map(loadImage),
     ...menuImages.map(loadImage),
     waitForFonts(),
-    loadImage('https://i.ytimg.com/vi/SaOwutdzd24/maxresdefault.jpg'),
     playerReady,
   ];
   let settled = 0;
