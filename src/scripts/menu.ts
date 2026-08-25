@@ -12,6 +12,8 @@ export function initMenu(player: YouTubeController) {
   const header = panel.querySelector<HTMLElement>('.site-menu__header')!;
   const row = panel.querySelector<HTMLElement>('#menu-cards')!;
   const cards = Array.from(panel.querySelectorAll<HTMLAnchorElement>('[data-menu-card]'));
+  const labels = cards.map((card) => card.querySelector<HTMLElement>('.menu-card__label')!);
+  const images = cards.map((card) => card.querySelector<HTMLImageElement>('img')!);
   const isDesktop = matchMedia('(hover: hover) and (pointer: fine)');
   let open = false;
   let animating = false;
@@ -29,9 +31,15 @@ export function initMenu(player: YouTubeController) {
       card.classList.toggle('is-muted', index >= 0 && index !== cardIndex);
     });
     Flip.from(state, { duration: 0.48, ease: 'power3.out', absolute: false });
-    cards.forEach((card, cardIndex) => {
-      gsap.to(card.querySelector('img'), { scale: cardIndex === index ? 1.045 : 1, opacity: index >= 0 && cardIndex !== index ? 0.72 : 1, duration: 0.4, ease: 'power2.out' });
-      gsap.to(card.querySelector('.menu-card__label'), { yPercent: cardIndex === index ? 0 : 110, opacity: cardIndex === index ? 1 : 0, duration: 0.35, ease: 'power3.out' });
+    cards.forEach((_card, cardIndex) => {
+      gsap.to(images[cardIndex], { scale: cardIndex === index ? 1.045 : 1, opacity: index >= 0 && cardIndex !== index ? 0.72 : 1, duration: 0.4, ease: 'power2.out', overwrite: true });
+      gsap.to(labels[cardIndex], {
+        autoAlpha: cardIndex === index ? 1 : 0,
+        yPercent: cardIndex === index ? 0 : 100,
+        duration: cardIndex === index ? 0.3 : 0.2,
+        ease: 'power2.out',
+        overwrite: true,
+      });
     });
   };
 
@@ -105,11 +113,15 @@ export function initMenu(player: YouTubeController) {
   const setupMobileEmphasis = () => {
     mobileObserver?.disconnect();
     cards.forEach((card) => card.classList.remove('is-near-center'));
-    if (isDesktop.matches) return;
     activeIndex = -1;
     cards.forEach((card) => card.classList.remove('is-active', 'is-muted'));
-    gsap.set(cards.map((card) => card.querySelector('img')), { clearProps: 'transform,opacity' });
-    gsap.set(cards.map((card) => card.querySelector('.menu-card__label')), { clearProps: 'transform,opacity' });
+    gsap.killTweensOf([...images, ...labels]);
+    gsap.set(images, { clearProps: 'transform,opacity' });
+    if (isDesktop.matches) {
+      gsap.set(labels, { autoAlpha: 0, yPercent: 100 });
+      return;
+    }
+    gsap.set(labels, { clearProps: 'transform,opacity,visibility' });
     mobileObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => entry.target.classList.toggle('is-near-center', entry.isIntersecting));
     }, { root: row, rootMargin: '-36% 0px -36% 0px', threshold: 0.01 });
