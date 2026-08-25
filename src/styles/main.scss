@@ -154,7 +154,7 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
 }
 .hero-poster, .youtube-player, .youtube-player > div, .youtube-player iframe, .hero-shade { position: absolute; inset: 0; width: 100%; height: 100%; }
 .hero-poster {
-  z-index: 0;
+  z-index: 1;
   object-fit: cover;
   opacity: 1;
   visibility: visible;
@@ -164,17 +164,18 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
 .hero-poster.is-retired { opacity: 0; visibility: hidden; transition: opacity .45s ease, visibility 0s linear .45s; }
 .youtube-player {
   z-index: 0;
-  opacity: 0;
-  visibility: hidden;
-  transition: opacity .35s ease, visibility 0s linear .35s;
+  display: block;
+  overflow: hidden;
+  opacity: 1;
+  visibility: visible;
   pointer-events: none;
 }
 .youtube-player[data-media-state='autoplaying'],
-.youtube-player[data-media-state='cinema'] { opacity: 1; visibility: visible; transition: opacity .35s ease, visibility 0s; }
-.youtube-player iframe { border: 0; scale: 1.01; }
-.hero-shade { z-index: 1; background: linear-gradient(180deg, rgba(0,0,0,.04) 12%, rgba(0,0,0,.18) 100%); pointer-events: none; }
+.youtube-player[data-media-state='cinema'] { opacity: 1; visibility: visible; }
+.youtube-player iframe { display: block; border: 0; opacity: 1; visibility: visible; scale: 1.01; }
+.hero-shade { z-index: 2; background: linear-gradient(180deg, rgba(0,0,0,.04) 12%, rgba(0,0,0,.18) 100%); pointer-events: none; }
 .hero-title {
-  z-index: 2;
+  z-index: 3;
   left: 6.2%;
   bottom: 6.5%;
   color: #fff;
@@ -185,6 +186,7 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
   text-wrap: nowrap;
 }
 .watch-button {
+  z-index: 3;
   display: grid;
   place-items: center;
   width: clamp(3.25rem, 5vw, 4.5rem);
@@ -208,6 +210,7 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
   aspect-ratio: auto;
   transform: none !important;
   background: #000;
+  .youtube-player { z-index: 1; opacity: 1; visibility: visible; }
   .youtube-player iframe { scale: 1; }
   .hero-title, .hero-shade, .watch-button, .hero-poster { display: none; }
   .cinema-controls { display: block; }
@@ -299,11 +302,11 @@ body.is-cinema .site-header { opacity: 0; visibility: hidden; pointer-events: no
   &.is-active { flex-grow: 1.5; height: min(58vh, 560px); }
   &.is-muted { flex-grow: 1; height: min(42vh, 410px); }
 }
-.menu-card__label-mask { position: absolute; left: 0; bottom: calc(100% + .6rem); z-index: 2; display: block; width: 100%; height: 1.15rem; overflow: hidden; }
-.menu-card__label { display: block; opacity: 0; transform: translateY(110%); font-size: .7rem; font-weight: 600; line-height: 1.15rem; letter-spacing: .05em; white-space: nowrap; }
+.menu-card__label-mask { position: absolute; left: 0; bottom: calc(100% + .6rem); z-index: 3; display: block; width: 100%; height: 1.4em; min-height: 1.4em; overflow: hidden; }
+.menu-card__label { position: relative; z-index: 1; display: block; opacity: 0; transform: translateY(100%); font-size: .7rem; font-weight: 600; line-height: 1.2; letter-spacing: .05em; white-space: nowrap; }
 .menu-card__image { display: block; width: 100%; height: 100%; overflow: hidden; background: #ddd; }
 .menu-card img { width: 100%; height: 100%; object-fit: cover; }
-.menu-card:focus-visible .menu-card__label { opacity: 1 !important; transform: translateY(0) !important; }
+.menu-card:focus-visible .menu-card__label { opacity: 1 !important; visibility: visible !important; transform: translateY(0) !important; }
 
 // Minimal one-page targets
 .placeholder-section {

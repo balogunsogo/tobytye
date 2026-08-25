@@ -3,6 +3,7 @@ interface YTPlayer {
   pauseVideo(): void;
   mute(): void;
   unMute(): void;
+  setVolume(volume: number): void;
   isMuted(): boolean;
   seekTo(seconds: number, allowSeekAhead?: boolean): void;
   getPlayerState(): number;
@@ -92,6 +93,7 @@ export class YouTubeController {
     if (!this.player || this.state === 'failed') return;
     window.clearTimeout(this.autoplayCheck);
     this.player.mute();
+    this.player.setVolume(0);
     this.player.playVideo();
     this.autoplayCheck = window.setTimeout(() => {
       if (!this.cinema && !this.isPlaying()) this.setState('autoplay-blocked');
@@ -123,12 +125,16 @@ export class YouTubeController {
           onReady: () => {
             this.setState('ready');
             this.attemptMutedPlayback();
-            this.finishReady(true);
           },
           onStateChange: (event: YTPlayerEvent & { data: number }) => {
             if (event.data === YT.PlayerState.PLAYING) {
               window.clearTimeout(this.autoplayCheck);
+              if (!this.cinema) {
+                event.target.mute();
+                event.target.setVolume(0);
+              }
               this.setState(this.cinema ? 'cinema' : 'autoplaying');
+              this.finishReady(true);
             } else if (event.data === YT.PlayerState.ENDED && !this.cinema) {
               event.target.seekTo(0, true);
               event.target.mute();
@@ -181,14 +187,16 @@ export class YouTubeController {
     this.cinema = true;
     this.setState('cinema');
     this.player?.unMute();
+    this.player?.setVolume(100);
     this.player?.seekTo(0, true);
     this.player?.playVideo();
   }
 
   leaveCinema(): void {
     this.cinema = false;
-    this.setState('autoplaying');
+    this.setState('ready');
     this.player?.mute();
+    this.player?.setVolume(0);
     this.player?.seekTo(0, true);
     this.player?.playVideo();
     window.clearTimeout(this.autoplayCheck);
