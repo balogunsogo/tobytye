@@ -15,7 +15,6 @@ export function initCinemaMode(player: YouTubeController, menuIsOpen: () => bool
   const closeButton = document.querySelector<HTMLButtonElement>('#cinema-close')!;
   const playButton = document.querySelector<HTMLButtonElement>('#cinema-play')!;
   const muteButton = document.querySelector<HTMLButtonElement>('#cinema-mute')!;
-  const fullscreenButton = document.querySelector<HTMLButtonElement>('#cinema-fullscreen')!;
   const progress = document.querySelector<HTMLInputElement>('#cinema-progress')!;
   const time = document.querySelector<HTMLElement>('#cinema-time')!;
   let open = false;
@@ -26,7 +25,7 @@ export function initCinemaMode(player: YouTubeController, menuIsOpen: () => bool
 
   const syncControls = () => {
     const playing = player.isPlaying();
-    playButton.textContent = playing ? 'Ⅱ' : '▶';
+    playButton.dataset.playing = String(playing);
     playButton.setAttribute('aria-label', playing ? 'Pause video' : 'Play video');
     muteButton.textContent = player.isMuted() ? 'SOUND OFF' : 'SOUND ON';
     muteButton.setAttribute('aria-label', player.isMuted() ? 'Unmute video' : 'Mute video');
@@ -104,7 +103,7 @@ export function initCinemaMode(player: YouTubeController, menuIsOpen: () => bool
   };
 
   const togglePlay = () => {
-    if (player.isPlaying()) player.pause(); else player.play();
+    if (player.isPlaying()) player.pause(); else player.playWithSound();
     syncControls();
     showControls();
   };
@@ -119,7 +118,6 @@ export function initCinemaMode(player: YouTubeController, menuIsOpen: () => bool
   playButton.addEventListener('click', togglePlay);
   muteButton.addEventListener('click', toggleMute);
   progress.addEventListener('input', () => player.seek(Number(progress.value) / 1000 * player.duration()));
-  fullscreenButton.addEventListener('click', () => void media.requestFullscreen?.());
   media.addEventListener('pointermove', showControls);
   media.addEventListener('pointerdown', showControls);
   document.addEventListener('keydown', onKeydown);

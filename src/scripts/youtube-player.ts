@@ -182,6 +182,13 @@ export class YouTubeController {
   }
 
   play(): void { this.intentionalPause = false; this.player?.playVideo(); }
+  playWithSound(): void {
+    this.intentionalPause = false;
+    this.player?.unMute();
+    this.player?.setVolume(100);
+    this.player?.playVideo();
+    this.emit();
+  }
   pause(): void { this.intentionalPause = true; this.player?.pauseVideo(); }
   mute(): void { this.player?.mute(); this.emit(); }
   unmute(): void { this.player?.unMute(); this.emit(); }

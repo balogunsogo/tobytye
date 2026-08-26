@@ -19,12 +19,6 @@ export function initCreativeScene() {
   let lastViewportWidth = window.innerWidth;
   let intro: gsap.core.Timeline | null = null;
 
-  const setX = cards.map((card) => gsap.quickSetter(card, 'x', 'px'));
-  const setY = cards.map((card) => gsap.quickSetter(card, 'y', 'px'));
-  const setZ = cards.map((card) => gsap.quickSetter(card, 'z', 'px'));
-  const setScale = cards.map((card) => gsap.quickSetter(card, 'scale'));
-  const setOpacity = cards.map((card) => gsap.quickSetter(card, 'opacity'));
-
   const metrics = () => {
     const mobile = matchMedia('(max-width: 700px)').matches;
     const width = composition.getBoundingClientRect().width;
@@ -56,11 +50,8 @@ export function initCreativeScene() {
   const renderOrbit = (progress: number) => {
     cards.forEach((card, index) => {
       const point = pointAt(progress, index);
-      setX[index](point.x);
-      setY[index](point.y);
-      setZ[index](point.z);
-      setScale[index](point.scale);
-      setOpacity[index](point.opacity);
+      card.style.transform = `translate3d(calc(-50% + ${point.x.toFixed(2)}px), calc(-50% + ${point.y.toFixed(2)}px), ${point.z.toFixed(2)}px) scale(${point.scale.toFixed(4)})`;
+      card.style.opacity = point.opacity.toFixed(3);
       card.style.zIndex = String(1000 + Math.round(point.z));
     });
   };
@@ -110,7 +101,7 @@ export function initCreativeScene() {
       rotationY: 0,
       rotationZ: 0,
       transformOrigin: '50% 50%',
-      transformPerspective: 1000,
+      force3D: true,
     });
     gsap.set(headingLines, { yPercent: reduced.matches ? 0 : 110 });
     gsap.set(copyBlock, { yPercent: reduced.matches ? 0 : 45, opacity: reduced.matches ? 1 : 0 });

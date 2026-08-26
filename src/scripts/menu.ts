@@ -10,7 +10,6 @@ export function initMenu(player: YouTubeController) {
   const background = panel.querySelector<HTMLElement>('.site-menu__background')!;
   const trigger = document.querySelector<HTMLButtonElement>('#menu-trigger')!;
   const closeButton = document.querySelector<HTMLButtonElement>('#menu-close')!;
-  const rule = panel.querySelector<HTMLElement>('.site-menu__rule')!;
   const header = panel.querySelector<HTMLElement>('.site-menu__header')!;
   const row = panel.querySelector<HTMLElement>('#menu-cards')!;
   const cards = Array.from(panel.querySelectorAll<HTMLAnchorElement>('[data-menu-card]'));
@@ -63,10 +62,8 @@ export function initMenu(player: YouTubeController) {
       .set(panel, { autoAlpha: 1, pointerEvents: 'none' })
       .set(background, { scaleX: 0, transformOrigin: 'left center' })
       .set([header, cards], { opacity: 0 })
-      .set(rule, { scaleX: 0, transformOrigin: 'left center' })
       .to(background, { scaleX: 1, duration: 0.62, ease: 'power4.inOut' })
       .to(header, { opacity: 1, duration: 0.24, ease: 'power2.out' }, 0.16)
-      .to(rule, { scaleX: 1, duration: 0.45, ease: 'power3.out' }, 0.3)
       .fromTo(cards, { y: '18vh', opacity: 0 }, { y: 0, opacity: 1, duration: 0.5, stagger: 0.055, ease: 'power3.out' }, 0.38);
   };
 
@@ -104,7 +101,6 @@ export function initMenu(player: YouTubeController) {
       },
     })
       .to(cards, { y: '7vh', opacity: 0, duration: 0.24, stagger: 0.025, ease: 'power2.in' })
-      .to(rule, { scaleX: 0, duration: 0.2, ease: 'power2.in' }, 0.04)
       .to(header, { opacity: 0, duration: 0.16 }, 0.08)
       .to(background, { scaleX: 0, transformOrigin: 'left center', duration: 0.42, ease: 'power4.inOut' }, 0.16);
   };

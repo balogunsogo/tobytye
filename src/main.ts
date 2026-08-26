@@ -39,11 +39,10 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
           <div class="cinema-controls" id="cinema-controls" aria-hidden="true">
             <button class="cinema-close" id="cinema-close" type="button" aria-label="Close cinema mode"><span aria-hidden="true">╳</span> CLOSE</button>
             <div class="cinema-controls__bar">
-              <button id="cinema-play" type="button" aria-label="Pause video">Ⅱ</button>
+              <button id="cinema-play" type="button" data-playing="true" aria-label="Pause video"><span class="cinema-play-icon" aria-hidden="true"></span></button>
               <button id="cinema-mute" type="button" aria-label="Mute video">SOUND ON</button>
               <input id="cinema-progress" type="range" min="0" max="1000" value="0" aria-label="Video progress" />
               <span id="cinema-time" aria-hidden="true">0:00 / 0:00</span>
-              <button id="cinema-fullscreen" type="button" aria-label="Enter fullscreen">FULLSCREEN</button>
             </div>
           </div>
         </div>
@@ -68,7 +67,6 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="site-menu__background" aria-hidden="true"></div>
     <div class="site-menu__content">
       <div class="site-menu__header">${logo}<button class="menu-close" id="menu-close" type="button" aria-label="Close navigation menu"><span aria-hidden="true">╳</span> CLOSE</button></div>
-      <div class="site-menu__rule" aria-hidden="true"></div>
       <div class="menu-cards" id="menu-cards">
         ${[['WHO WE ARE', 'who-we-are'], ['WHAT WE DO', 'what-we-do'], ['WORK', 'work'], ['CONTACT', 'contact']].map(([label, id], index) => `<a class="menu-card" href="#${id}" data-menu-card><span class="menu-card__label">${label}</span><span class="menu-card__image"><img src="${asset(`Menu ${index + 1}.png`)}" alt="" loading="lazy" decoding="async" /></span></a>`).join('')}
       </div>
