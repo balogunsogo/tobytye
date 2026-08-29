@@ -1,7 +1,7 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { maskedHeadingRevealVars, setMaskedHeadingInitialState } from './masked-heading-reveal';
-import { createSettledViewportTask, usesNativeTouchScrolling } from './viewport-stability';
+import { createSettledViewportTask } from './viewport-stability';
 
 type ArtworkShape = 'square' | 'circle';
 
@@ -272,9 +272,7 @@ const initEditorialCardEffects = (
   revealedCards: WeakSet<HTMLElement>,
 ) => {
   const cards = Array.from(section.querySelectorAll<HTMLElement>('[data-editorial-card]'));
-  const artwork = Array.from(section.querySelectorAll<HTMLElement>('.editorial-artwork'));
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  const nativeTouchScroll = usesNativeTouchScrolling();
   if (reduced || !cards.length) return () => undefined;
 
   const rowAnimations = groupCardsByVisualRow(cards).map((row) => {
@@ -305,36 +303,12 @@ const initEditorialCardEffects = (
     return { timeline, trigger };
   }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
 
-  const parallaxTweens = nativeTouchScroll ? [] : artwork.flatMap((wrapper) => {
-    const image = wrapper.querySelector<HTMLElement>('img');
-    if (!image) return [];
-    return [gsap.fromTo(image,
-      { yPercent: -7, scale: 1.16, transformOrigin: '50% 50%' },
-      {
-        yPercent: 7,
-        scale: 1.16,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: wrapper,
-          start: 'top bottom',
-          end: 'bottom top',
-          scrub: 0.6,
-          invalidateOnRefresh: true,
-        },
-      })];
-  });
-
   return () => {
     rowAnimations.forEach(({ timeline, trigger }) => {
       trigger.kill();
       timeline.kill();
     });
-    parallaxTweens.forEach((parallax) => {
-      parallax.scrollTrigger?.kill();
-      parallax.kill();
-    });
     gsap.set(cards, { clearProps: 'transform,opacity,visibility' });
-    gsap.set(artwork.map((wrapper) => wrapper.querySelector('img')).filter(Boolean), { clearProps: 'transform' });
   };
 };
 
@@ -442,6 +416,11 @@ const initCursorCardHover = (section: HTMLElement, options: CursorCardHoverOptio
 
 export function initEditorialSections() {
   const sections = Array.from(document.querySelectorAll<HTMLElement>('.selected-work, .stories'));
+  const editorialImages = sections.flatMap((section) => (
+    Array.from(section.querySelectorAll<HTMLElement>('.editorial-artwork img'))
+  ));
+  gsap.killTweensOf(editorialImages);
+  gsap.set(editorialImages, { clearProps: 'transform,transformOrigin,translate,scale,rotate' });
   const destroyers = sections.map((section) => (
     section.classList.contains('selected-work')
       ? initSelectedWorkReveal(section)
