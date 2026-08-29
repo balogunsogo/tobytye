@@ -1,4 +1,6 @@
 import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
+import { maskedHeadingRevealVars, setMaskedHeadingInitialState } from './masked-heading-reveal';
 
 type OrbitPoint = { x: number; y: number; z: number; scale: number; opacity: number };
 
@@ -7,7 +9,8 @@ export function initCreativeScene() {
   const composition = section.querySelector<HTMLElement>('.card-composition')!;
   const cards = Array.from(section.querySelectorAll<HTMLElement>('[data-orbit-card]'));
   const headingLines = Array.from(section.querySelectorAll<HTMLElement>('h2 .line-mask > span'));
-  const copyBlock = section.querySelector<HTMLElement>('.creative-copy .line-mask > span')!;
+  const copy = section.querySelector<HTMLElement>('.creative-copy')!;
+  const copyText = copy.textContent?.replace(/\s+/g, ' ').trim() ?? '';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let entered = false;
   let assembled = false;
@@ -18,6 +21,14 @@ export function initCreativeScene() {
   let lastTick = 0;
   let lastViewportWidth = window.innerWidth;
   let intro: gsap.core.Timeline | null = null;
+  let copyTween: gsap.core.Tween | null = null;
+  let copyTrigger: ScrollTrigger | null = null;
+  let copyRevealed = false;
+  let layoutReady = false;
+  let copyLines: HTMLElement[] = [];
+  let lastCopyWidth = 0;
+  let copyResizeFrame = 0;
+  let destroyed = false;
 
   const metrics = () => {
     const mobile = matchMedia('(max-width: 700px)').matches;
@@ -85,6 +96,116 @@ export function initCreativeScene() {
     }
   };
 
+  const splitCopyIntoRenderedLines = () => {
+    const measurement = document.createElement('span');
+    measurement.className = 'creative-copy__measure';
+    measurement.setAttribute('aria-hidden', 'true');
+
+    const words = copyText.split(' ');
+    const wordElements = words.map((word, index) => {
+      const wordElement = document.createElement('span');
+      wordElement.className = 'creative-copy__word';
+      wordElement.textContent = word;
+      measurement.append(wordElement);
+      if (index < words.length - 1) measurement.append(document.createTextNode(' '));
+      return wordElement;
+    });
+
+    copy.replaceChildren(measurement);
+
+    const renderedLines: string[][] = [];
+    const lineTops: number[] = [];
+    wordElements.forEach((wordElement, index) => {
+      const top = wordElement.getBoundingClientRect().top;
+      let lineIndex = lineTops.findIndex((lineTop) => Math.abs(lineTop - top) <= 1);
+      if (lineIndex === -1) {
+        lineIndex = renderedLines.length;
+        renderedLines.push([]);
+        lineTops.push(top);
+      }
+      renderedLines[lineIndex].push(words[index]);
+    });
+
+    const accessibleText = document.createElement('span');
+    accessibleText.className = 'creative-copy__sr';
+    accessibleText.textContent = copyText;
+
+    const visualLines = document.createElement('span');
+    visualLines.className = 'creative-copy__visual';
+    visualLines.setAttribute('aria-hidden', 'true');
+    copyLines = renderedLines.map((lineWords) => {
+      const mask = document.createElement('span');
+      mask.className = 'line-mask creative-copy__line-mask';
+      const line = document.createElement('span');
+      line.className = 'creative-copy__line';
+      line.textContent = lineWords.join(' ');
+      mask.append(line);
+      visualLines.append(mask);
+      return line;
+    });
+
+    copy.replaceChildren(accessibleText, visualLines);
+    lastCopyWidth = copy.getBoundingClientRect().width;
+  };
+
+  const setupCopyReveal = () => {
+    copyTrigger?.kill();
+    copyTrigger = null;
+    copyTween?.kill();
+    copyTween = null;
+    gsap.killTweensOf(copyLines);
+
+    if (!copyLines.length) splitCopyIntoRenderedLines();
+
+    if (reduced.matches || copyRevealed) {
+      copyRevealed = true;
+      gsap.set(copyLines, { clearProps: 'transform,opacity' });
+      return;
+    }
+
+    if (!layoutReady) return;
+
+    copyTween = gsap.fromTo(copyLines,
+      { yPercent: 110, opacity: 0 },
+      {
+        yPercent: 0,
+        opacity: 1,
+        duration: 0.85,
+        stagger: 0.12,
+        ease: 'power3.out',
+        paused: true,
+        onStart: () => { copyRevealed = true; },
+        onComplete: () => gsap.set(copyLines, { clearProps: 'transform,opacity' }),
+      });
+    copyTrigger = ScrollTrigger.create({
+      trigger: copy,
+      start: 'top 90%',
+      animation: copyTween,
+      toggleActions: 'play none none none',
+      once: true,
+    });
+    copyTrigger.refresh();
+  };
+
+  const rebuildCopyReveal = () => {
+    copyTrigger?.kill();
+    copyTween?.kill();
+    gsap.killTweensOf(copyLines);
+    splitCopyIntoRenderedLines();
+    setupCopyReveal();
+  };
+
+  const copyResizeObserver = new ResizeObserver(([entry]) => {
+    if (!layoutReady || !entry) return;
+    const nextWidth = entry.contentRect.width;
+    if (Math.abs(nextWidth - lastCopyWidth) < 8) return;
+    lastCopyWidth = nextWidth;
+    cancelAnimationFrame(copyResizeFrame);
+    copyResizeFrame = requestAnimationFrame(() => {
+      if (!destroyed) rebuildCopyReveal();
+    });
+  });
+
   const prepare = () => {
     intro?.kill();
     stopOrbit();
@@ -103,8 +224,7 @@ export function initCreativeScene() {
       transformOrigin: '50% 50%',
       force3D: true,
     });
-    gsap.set(headingLines, { yPercent: reduced.matches ? 0 : 110 });
-    gsap.set(copyBlock, { yPercent: reduced.matches ? 0 : 45, opacity: reduced.matches ? 1 : 0 });
+    setMaskedHeadingInitialState(headingLines, reduced.matches);
 
     if (reduced.matches) {
       orbitProgress = 0;
@@ -124,7 +244,7 @@ export function initCreativeScene() {
         syncOrbitState();
       },
     })
-      .to(headingLines, { yPercent: 0, duration: 0.72, stagger: 0.09, ease: 'power3.out' })
+      .to(headingLines, maskedHeadingRevealVars())
       .to(cards, {
         x: (index: number) => assembledPoints[index].x,
         y: (index: number) => assembledPoints[index].y,
@@ -134,8 +254,7 @@ export function initCreativeScene() {
         duration: 1.05,
         stagger: 0.07,
         ease: 'power3.inOut',
-      }, 0.18)
-      .to(copyBlock, { yPercent: 0, opacity: 1, duration: 0.62, ease: 'power3.out' }, 0.72);
+      }, 0.18);
   };
 
   const observer = new IntersectionObserver(([entry]) => {
@@ -161,6 +280,7 @@ export function initCreativeScene() {
   const onReduced = () => {
     entered = reduced.matches;
     prepare();
+    if (layoutReady || reduced.matches) setupCopyReveal();
     if (visible && !reduced.matches) {
       entered = true;
       intro?.play();
@@ -175,9 +295,22 @@ export function initCreativeScene() {
   reduced.addEventListener('change', onReduced);
 
   return {
+    refresh: async () => {
+      layoutReady = true;
+      await document.fonts.ready;
+      if (destroyed) return;
+      rebuildCopyReveal();
+      copyResizeObserver.observe(copy);
+    },
     destroy: () => {
+      destroyed = true;
       observer.disconnect();
+      copyResizeObserver.disconnect();
+      cancelAnimationFrame(copyResizeFrame);
       intro?.kill();
+      copyTrigger?.kill();
+      copyTween?.kill();
+      gsap.killTweensOf(copyLines);
       stopOrbit();
       window.removeEventListener('site-overlay', onOverlay);
       window.removeEventListener('resize', onResize);

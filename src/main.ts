@@ -37,7 +37,9 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
         <div class="hero-media" id="hero-media">
           <video class="hero-video" id="hero-video" src="/assets/gamp-animation.mp4" autoplay muted loop playsinline preload="auto" disablepictureinpicture></video>
           <div class="hero-shade" aria-hidden="true"></div>
-          <button class="watch-button" id="watch-button" type="button" aria-label="Watch video with sound"><span aria-hidden="true">▶</span><b>WATCH</b></button>
+          <div class="watch-button-wrap">
+            <button class="watch-button" id="watch-button" type="button" aria-label="Watch video"><span class="watch-button__icon" aria-hidden="true"></span></button>
+          </div>
           <div class="cinema-controls" id="cinema-controls" aria-hidden="true">
             <button class="cinema-close" id="cinema-close" type="button" aria-label="Close cinema mode"><span aria-hidden="true">╳</span> CLOSE</button>
             <div class="cinema-controls__bar">
@@ -70,7 +72,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <div class="site-menu__background" aria-hidden="true"></div>
     <div class="site-menu__content">
       <div class="site-menu__header">${logo()}<button class="menu-close" id="menu-close" type="button" aria-label="Close navigation menu"><span aria-hidden="true">╳</span> CLOSE</button></div>
-      <div class="menu-cards" id="menu-cards">
+      <div class="menu-cards" id="menu-cards" data-lenis-prevent data-lenis-prevent-touch>
         ${[['WHO WE ARE', 'who-we-are'], ['WHAT WE DO', 'what-we-do'], ['WORK', 'work'], ['CONTACT', 'contact']].map(([label, id], index) => `<a class="menu-card" href="#${id}" data-menu-card><span class="menu-card__label">${label}</span><span class="menu-card__image"><img src="${asset(`Menu ${index + 1}.png`)}" alt="" loading="lazy" decoding="async" /></span></a>`).join('')}
       </div>
     </div>
@@ -91,6 +93,8 @@ const appReady = async () => {
   player.retryMutedAutoplay();
   heroScroll.refresh();
   ScrollTrigger.refresh();
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  await creative.refresh();
 };
 
 void appReady();

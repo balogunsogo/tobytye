@@ -20,23 +20,47 @@ export function initMenu(player: VideoController) {
   let restoreScroll: (() => void) | null = null;
   let cinemaIsOpen = () => false;
   let activeIndex = -1;
+  let cardFlip: gsap.core.Timeline | null = null;
   let mobileObserver: IntersectionObserver | null = null;
 
   const setMenuState = (state: MenuState) => { panel.dataset.menuState = state; };
   panel.inert = true;
   gsap.set(panel, { autoAlpha: 0, pointerEvents: 'none' });
 
-  const setActiveCard = (index: number) => {
+  const setActiveCard = (index: number, animate = true) => {
     if (index === activeIndex || !isDesktop.matches) return;
-    const state = Flip.getState(cards);
+
+    const state = animate ? Flip.getState(cards, { simple: true }) : null;
+    cardFlip?.kill();
+    cardFlip = null;
     activeIndex = index;
     cards.forEach((card, cardIndex) => {
       card.classList.toggle('is-active', index === cardIndex);
       card.classList.toggle('is-muted', index >= 0 && index !== cardIndex);
     });
-    Flip.from(state, { duration: 0.48, ease: 'power3.out', absolute: false });
-    cards.forEach((_card, cardIndex) => {
-      gsap.to(images[cardIndex], { scale: cardIndex === index ? 1.045 : 1, opacity: index >= 0 && cardIndex !== index ? 0.72 : 1, duration: 0.4, ease: 'power2.out', overwrite: true });
+
+    if (state) {
+      cardFlip = Flip.from(state, {
+        duration: 0.42,
+        ease: 'power2.inOut',
+        absolute: false,
+        nested: true,
+        prune: true,
+        scale: true,
+        simple: true,
+        onComplete: () => { cardFlip = null; },
+      });
+    } else {
+      Flip.killFlipsOf(cards);
+      gsap.set(cards, { clearProps: 'transform' });
+    }
+
+    gsap.to(images, {
+      scale: (cardIndex) => cardIndex === index ? 1.045 : 1,
+      opacity: (cardIndex) => index >= 0 && cardIndex !== index ? 0.72 : 1,
+      duration: animate ? 0.36 : 0,
+      ease: 'power2.inOut',
+      overwrite: true,
     });
   };
 
@@ -90,7 +114,7 @@ export function initMenu(player: VideoController) {
         window.dispatchEvent(new CustomEvent('site-overlay', { detail: { open: false } }));
         player.mute();
         player.play();
-        setActiveCard(-1);
+        setActiveCard(-1, false);
         if (destination) {
           const target = document.querySelector<HTMLElement>(destination);
           if (target) {
@@ -119,6 +143,9 @@ export function initMenu(player: VideoController) {
 
   const setupMobileEmphasis = () => {
     mobileObserver?.disconnect();
+    cardFlip?.kill();
+    cardFlip = null;
+    Flip.killFlipsOf(cards);
     cards.forEach((card) => card.classList.remove('is-near-center'));
     activeIndex = -1;
     cards.forEach((card) => card.classList.remove('is-active', 'is-muted'));
@@ -134,9 +161,16 @@ export function initMenu(player: VideoController) {
   trigger.addEventListener('click', openMenu);
   closeButton.addEventListener('click', () => closeMenu());
   document.addEventListener('keydown', onKeydown);
-  row.addEventListener('pointerleave', () => setActiveCard(-1));
+  const cardEnterHandlers = cards.map((_card, index) => () => setActiveCard(index));
+  const cardLeaveHandlers = cards.map((_card, index) => (event: PointerEvent) => {
+    if (activeIndex !== index) return;
+    const next = event.relatedTarget;
+    if (next instanceof Element && next.closest('[data-menu-card]')) return;
+    setActiveCard(-1);
+  });
   cards.forEach((card, index) => {
-    card.addEventListener('pointerenter', () => setActiveCard(index));
+    card.addEventListener('pointerenter', cardEnterHandlers[index]);
+    card.addEventListener('pointerleave', cardLeaveHandlers[index]);
     card.addEventListener('click', (event) => {
       event.preventDefault();
       closeMenu(card.hash);
@@ -155,6 +189,12 @@ export function initMenu(player: VideoController) {
       isDesktop.removeEventListener('change', setupMobileEmphasis);
       document.removeEventListener('keydown', onKeydown);
       trigger.removeEventListener('click', openMenu);
+      cards.forEach((card, index) => {
+        card.removeEventListener('pointerenter', cardEnterHandlers[index]);
+        card.removeEventListener('pointerleave', cardLeaveHandlers[index]);
+      });
+      cardFlip?.kill();
+      Flip.killFlipsOf(cards);
     },
   };
 }
