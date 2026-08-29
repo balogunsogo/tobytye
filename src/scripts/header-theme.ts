@@ -49,8 +49,8 @@ export function initHeaderTheme() {
   };
 
   window.addEventListener('scroll', scheduleUpdate, { passive: true });
-  window.addEventListener('resize', observeSections, { passive: true });
-  window.addEventListener('orientationchange', observeSections);
+  window.addEventListener('resize', scheduleUpdate, { passive: true });
+  window.addEventListener('orientationchange', scheduleUpdate);
   window.addEventListener('header-theme-change', onThemeChange);
   observeSections();
 
@@ -59,8 +59,8 @@ export function initHeaderTheme() {
       observer?.disconnect();
       cancelAnimationFrame(frame);
       window.removeEventListener('scroll', scheduleUpdate);
-      window.removeEventListener('resize', observeSections);
-      window.removeEventListener('orientationchange', observeSections);
+      window.removeEventListener('resize', scheduleUpdate);
+      window.removeEventListener('orientationchange', scheduleUpdate);
       window.removeEventListener('header-theme-change', onThemeChange);
     },
   };

@@ -27,8 +27,8 @@
 }
 *::-webkit-scrollbar-thumb:hover { background: #202020; }
 *::-webkit-scrollbar-corner { background: transparent; }
-html { background: #e9e8e3; }
-body { margin: 0; overflow-x: hidden; }
+html { background: #e9e8e3; overflow-x: hidden; overflow-y: auto; touch-action: pan-y; overscroll-behavior-x: none; -webkit-overflow-scrolling: touch; }
+body { margin: 0; overflow-x: hidden; overflow-y: auto; touch-action: pan-y; overscroll-behavior-x: none; -webkit-overflow-scrolling: touch; }
 button, a { font: inherit; }
 button { color: inherit; }
 .hero { min-height: 100dvh; padding: clamp(1rem, 2.2vw, 2rem); }
@@ -82,7 +82,7 @@ button { color: inherit; }
 }
 
 html { scroll-behavior: auto; }
-body.is-loading { overflow: hidden; }
+html.is-loading, body.is-loading { overflow: hidden; }
 img { display: block; max-width: 100%; }
 a { color: inherit; }
 :where(a, button, input):focus-visible { outline: 2px solid var(--focus); outline-offset: 4px; }
@@ -559,11 +559,12 @@ body.is-menu-open .site-header { opacity: 0; visibility: hidden; pointer-events:
 @media (max-width: 700px) {
   .site-header { padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) 0 max(1rem, env(safe-area-inset-left)); }
   .brand { width: 7.6rem; }
+  .hero, .hero-stage { min-height: 100svh; }
   .hero-media { width: calc(100vw - 2rem); }
   .hero-title { left: 5%; bottom: 6%; font-size: clamp(2.15rem, 11.2vw, 3.35rem); line-height: .84; }
   .cinema-controls__bar { grid-template-columns: auto auto minmax(4rem, 1fr); }
   .cinema-controls__bar span { display: none; }
-  .creative { min-height: 100dvh; margin-top: -3vh; padding-top: 7rem; }
+  .creative { min-height: 100svh; margin-top: -3vh; padding-top: 7rem; }
   .creative h2 { font-size: clamp(2.35rem, 11vw, 4.2rem); line-height: .9; }
   .creative-grid { grid-template-columns: 1fr; margin-top: 3rem; gap: 2rem; }
   .card-composition { order: 0; width: 100%; max-width: 100%; height: clamp(19rem, 75vw, 23rem); perspective: 800px; perspective-origin: 50% 50%; transform-style: preserve-3d; -webkit-transform-style: preserve-3d; overflow: visible; }

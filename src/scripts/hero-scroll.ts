@@ -1,17 +1,20 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import type { VideoController } from './video-player';
+import { createSettledViewportTask, usesNativeTouchScrolling } from './viewport-stability';
 
 export function initHeroScroll(player: VideoController) {
   const hero = document.querySelector<HTMLElement>('.hero')!;
+  const stage = hero.querySelector<HTMLElement>('.hero-stage')!;
   const media = document.querySelector<HTMLElement>('#hero-media')!;
   const headerControls = Array.from(document.querySelectorAll<HTMLElement>('#site-header .brand-link, #site-header .menu-trigger'));
   const title = document.querySelector<HTMLElement>('#hero-title');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const nativeTouchScroll = usesNativeTouchScrolling();
   let trigger: ScrollTrigger | null = null;
-  let resizeTimer = 0;
   let lastWidth = window.innerWidth;
   let lastHeight = window.innerHeight;
+  let stableViewportHeight = nativeTouchScroll ? stage.getBoundingClientRect().height : window.innerHeight;
 
   const setHeroHeaderTheme = (videoBehindHeader: boolean) => {
     const theme = videoBehindHeader ? 'dark' : 'light';
@@ -37,7 +40,8 @@ export function initHeroScroll(player: VideoController) {
     const currentScale = Number(gsap.getProperty(media, 'scale')) || 1;
     const baseWidth = rect.width / currentScale;
     const baseHeight = rect.height / currentScale;
-    return Math.max(window.innerWidth / baseWidth, window.innerHeight / baseHeight) * 1.015;
+    const viewportHeight = nativeTouchScroll ? stableViewportHeight : window.innerHeight;
+    return Math.max(window.innerWidth / baseWidth, viewportHeight / baseHeight) * 1.015;
   };
 
   const build = () => {
@@ -58,7 +62,7 @@ export function initHeroScroll(player: VideoController) {
     trigger = ScrollTrigger.create({
       trigger: hero,
       start: 'top top',
-      end: () => `+=${window.innerHeight * (mobile ? 1.15 : 1.8)}`,
+      end: () => `+=${(nativeTouchScroll ? stableViewportHeight : window.innerHeight) * (mobile ? 1.15 : 1.8)}`,
       pin: true,
       scrub: 0.6,
       animation: timeline,
@@ -69,22 +73,23 @@ export function initHeroScroll(player: VideoController) {
   };
 
   const refresh = () => {
+    stableViewportHeight = nativeTouchScroll ? stage.getBoundingClientRect().height : window.innerHeight;
+    lastWidth = window.innerWidth;
+    lastHeight = window.innerHeight;
     build();
     ScrollTrigger.refresh();
   };
 
+  const settledRefresh = createSettledViewportTask(refresh);
+
   const onResize = () => {
-    window.clearTimeout(resizeTimer);
-    resizeTimer = window.setTimeout(() => {
-      const widthChanged = Math.abs(window.innerWidth - lastWidth) > 2;
-      const heightChanged = Math.abs(window.innerHeight - lastHeight) > 90;
-      if (widthChanged || heightChanged) {
-        lastWidth = window.innerWidth;
-        lastHeight = window.innerHeight;
-        refresh();
-      }
-    }, 180);
+    const widthChanged = Math.abs(window.innerWidth - lastWidth) > 8;
+    const desktopHeightChanged = !nativeTouchScroll && Math.abs(window.innerHeight - lastHeight) > 90;
+    if (!widthChanged && !desktopHeightChanged) return;
+    settledRefresh.schedule();
   };
+
+  const onOrientationChange = () => settledRefresh.schedule();
 
   const visibility = new IntersectionObserver(([entry]) => {
     if (document.body.classList.contains('is-cinema') || document.querySelector('.site-menu.is-open')) return;
@@ -99,18 +104,19 @@ export function initHeroScroll(player: VideoController) {
 
   reduced.addEventListener('change', refresh);
   window.addEventListener('resize', onResize, { passive: true });
-  window.addEventListener('orientationchange', refresh);
+  window.addEventListener('orientationchange', onOrientationChange);
   build();
 
   return {
     refresh,
     destroy: () => {
       trigger?.kill();
+      settledRefresh.cancel();
       setHeroHeaderTheme(false);
       visibility.disconnect();
       reduced.removeEventListener('change', refresh);
       window.removeEventListener('resize', onResize);
-      window.removeEventListener('orientationchange', refresh);
+      window.removeEventListener('orientationchange', onOrientationChange);
     },
   };
 }

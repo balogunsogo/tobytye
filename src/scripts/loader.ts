@@ -29,6 +29,7 @@ export async function startLoader(playerReady: Promise<boolean>): Promise<void> 
   const counter = document.querySelector<HTMLOutputElement>('#loader-counter');
   const layers = Array.from(document.querySelectorAll<HTMLElement>('[data-loader-image]'));
   if (!loader || !counter) return;
+  document.documentElement.classList.add('is-loading');
   document.body.classList.add('is-loading');
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -81,5 +82,6 @@ export async function startLoader(playerReady: Promise<boolean>): Promise<void> 
   await gsap.to(loader, { yPercent: -100, duration: reduced ? 0.18 : 0.75, ease: 'power3.inOut' });
   loader.setAttribute('aria-hidden', 'true');
   loader.style.display = 'none';
+  document.documentElement.classList.remove('is-loading');
   document.body.classList.remove('is-loading');
 }

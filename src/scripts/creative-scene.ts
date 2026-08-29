@@ -1,6 +1,7 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
 import { maskedHeadingRevealVars, setMaskedHeadingInitialState } from './masked-heading-reveal';
+import { createSettledViewportTask } from './viewport-stability';
 
 type OrbitPoint = { x: number; y: number; z: number; scale: number; opacity: number };
 
@@ -27,7 +28,6 @@ export function initCreativeScene() {
   let layoutReady = false;
   let copyLines: HTMLElement[] = [];
   let lastCopyWidth = 0;
-  let copyResizeFrame = 0;
   let destroyed = false;
 
   const metrics = () => {
@@ -195,15 +195,16 @@ export function initCreativeScene() {
     setupCopyReveal();
   };
 
+  const settledCopyRebuild = createSettledViewportTask(() => {
+    if (!destroyed) rebuildCopyReveal();
+  });
+
   const copyResizeObserver = new ResizeObserver(([entry]) => {
     if (!layoutReady || !entry) return;
     const nextWidth = entry.contentRect.width;
     if (Math.abs(nextWidth - lastCopyWidth) < 8) return;
     lastCopyWidth = nextWidth;
-    cancelAnimationFrame(copyResizeFrame);
-    copyResizeFrame = requestAnimationFrame(() => {
-      if (!destroyed) rebuildCopyReveal();
-    });
+    settledCopyRebuild.schedule();
   });
 
   const prepare = () => {
@@ -306,7 +307,7 @@ export function initCreativeScene() {
       destroyed = true;
       observer.disconnect();
       copyResizeObserver.disconnect();
-      cancelAnimationFrame(copyResizeFrame);
+      settledCopyRebuild.cancel();
       intro?.kill();
       copyTrigger?.kill();
       copyTween?.kill();

@@ -12,6 +12,7 @@ import { initEditorialSections, renderSelectedWork, renderStories } from './scri
 import { initHeaderTheme } from './scripts/header-theme';
 
 gsap.registerPlugin(ScrollTrigger, Flip);
+ScrollTrigger.config({ ignoreMobileResize: true });
 
 const asset = (name: string) => `/assets/${encodeURIComponent(name)}`;
 const logo = (decorative = false) => `<span class="brand" ${decorative ? 'aria-hidden="true"' : 'role="img" aria-label="Toby&Tye"'}></span>`;
@@ -95,6 +96,8 @@ const appReady = async () => {
   ScrollTrigger.refresh();
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await creative.refresh();
+  await editorialSections.refresh();
+  ScrollTrigger.refresh();
 };
 
 void appReady();

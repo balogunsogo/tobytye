@@ -1,5 +1,7 @@
 import gsap from 'gsap';
+import ScrollTrigger from 'gsap/ScrollTrigger';
 import { maskedHeadingRevealVars, setMaskedHeadingInitialState } from './masked-heading-reveal';
+import { createSettledViewportTask, usesNativeTouchScrolling } from './viewport-stability';
 
 type ArtworkShape = 'square' | 'circle';
 
@@ -207,12 +209,10 @@ export const renderStories = () => `
 
 const initEditorialReveal = (section: HTMLElement) => {
   const heading = section.querySelector<HTMLElement>('.editorial-heading');
-  const cards = Array.from(section.querySelectorAll<HTMLElement>('[data-editorial-card]'));
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced || !heading || !cards.length) return () => undefined;
+  if (reduced || !heading) return () => undefined;
 
   gsap.set(heading, { y: 22, opacity: 0 });
-  gsap.set(cards, { y: 28, opacity: 0 });
 
   const timeline = gsap.timeline({
     scrollTrigger: {
@@ -220,14 +220,12 @@ const initEditorialReveal = (section: HTMLElement) => {
       start: 'top 78%',
       once: true,
     },
-  })
-    .to(heading, { y: 0, opacity: 1, duration: 0.58, ease: 'power3.out' })
-    .to(cards, { y: 0, opacity: 1, duration: 0.58, stagger: 0.065, ease: 'power3.out' }, 0.1);
+  }).to(heading, { y: 0, opacity: 1, duration: 0.58, ease: 'power3.out' });
 
   return () => {
     timeline.scrollTrigger?.kill();
     timeline.kill();
-    gsap.set([heading, ...cards], { clearProps: 'transform,opacity' });
+    gsap.set(heading, { clearProps: 'transform,opacity' });
   };
 };
 
@@ -236,12 +234,10 @@ const initSelectedWorkReveal = (section: HTMLElement) => {
   const headingLines = heading
     ? Array.from(heading.querySelectorAll<HTMLElement>(':scope > .line-mask > span'))
     : [];
-  const cards = Array.from(section.querySelectorAll<HTMLElement>('[data-editorial-card]'));
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
-  if (reduced || !heading || !headingLines.length || !cards.length) return () => undefined;
+  if (reduced || !heading || !headingLines.length) return () => undefined;
 
   setMaskedHeadingInitialState(headingLines, false);
-  gsap.set(cards, { y: 28, opacity: 0 });
 
   const headingTween = gsap.to(headingLines, {
     ...maskedHeadingRevealVars(),
@@ -253,20 +249,92 @@ const initSelectedWorkReveal = (section: HTMLElement) => {
     },
   });
 
-  const cardsTimeline = gsap.timeline({
-    scrollTrigger: {
-      trigger: section,
-      start: 'top 78%',
-      once: true,
-    },
-  }).to(cards, { y: 0, opacity: 1, duration: 0.58, stagger: 0.065, ease: 'power3.out' }, 0.1);
-
   return () => {
     headingTween.scrollTrigger?.kill();
     headingTween.kill();
-    cardsTimeline.scrollTrigger?.kill();
-    cardsTimeline.kill();
-    gsap.set([heading, ...cards], { clearProps: 'transform,opacity' });
+    gsap.set(heading, { clearProps: 'transform,opacity' });
+  };
+};
+
+const groupCardsByVisualRow = (cards: HTMLElement[]) => {
+  const rows: Array<{ top: number; cards: HTMLElement[] }> = [];
+  cards.forEach((card) => {
+    const top = card.getBoundingClientRect().top;
+    const row = rows.find((candidate) => Math.abs(candidate.top - top) <= 2);
+    if (row) row.cards.push(card);
+    else rows.push({ top, cards: [card] });
+  });
+  return rows.sort((a, b) => a.top - b.top).map((row) => row.cards);
+};
+
+const initEditorialCardEffects = (
+  section: HTMLElement,
+  revealedCards: WeakSet<HTMLElement>,
+) => {
+  const cards = Array.from(section.querySelectorAll<HTMLElement>('[data-editorial-card]'));
+  const artwork = Array.from(section.querySelectorAll<HTMLElement>('.editorial-artwork'));
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const nativeTouchScroll = usesNativeTouchScrolling();
+  if (reduced || !cards.length) return () => undefined;
+
+  const rowAnimations = groupCardsByVisualRow(cards).map((row) => {
+    const pendingCards = row.filter((card) => !revealedCards.has(card));
+    if (!pendingCards.length) return null;
+
+    const timeline = gsap.timeline({
+      paused: true,
+      onStart: () => pendingCards.forEach((card) => revealedCards.add(card)),
+    }).fromTo(pendingCards,
+      { autoAlpha: 0, y: 50 },
+      {
+        autoAlpha: 1,
+        y: 0,
+        duration: 1,
+        stagger: 0.18,
+        ease: 'power3.out',
+        immediateRender: true,
+      });
+
+    const trigger = ScrollTrigger.create({
+      trigger: row[0],
+      start: 'top 78%',
+      animation: timeline,
+      toggleActions: 'play none none none',
+      once: true,
+    });
+    return { timeline, trigger };
+  }).filter((entry): entry is NonNullable<typeof entry> => entry !== null);
+
+  const parallaxTweens = nativeTouchScroll ? [] : artwork.flatMap((wrapper) => {
+    const image = wrapper.querySelector<HTMLElement>('img');
+    if (!image) return [];
+    return [gsap.fromTo(image,
+      { yPercent: -7, scale: 1.16, transformOrigin: '50% 50%' },
+      {
+        yPercent: 7,
+        scale: 1.16,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: wrapper,
+          start: 'top bottom',
+          end: 'bottom top',
+          scrub: 0.6,
+          invalidateOnRefresh: true,
+        },
+      })];
+  });
+
+  return () => {
+    rowAnimations.forEach(({ timeline, trigger }) => {
+      trigger.kill();
+      timeline.kill();
+    });
+    parallaxTweens.forEach((parallax) => {
+      parallax.scrollTrigger?.kill();
+      parallax.kill();
+    });
+    gsap.set(cards, { clearProps: 'transform,opacity,visibility' });
+    gsap.set(artwork.map((wrapper) => wrapper.querySelector('img')).filter(Boolean), { clearProps: 'transform' });
   };
 };
 
@@ -379,6 +447,36 @@ export function initEditorialSections() {
       ? initSelectedWorkReveal(section)
       : initEditorialReveal(section)
   ));
+  const revealedCards = new WeakSet<HTMLElement>();
+  let destroyCardEffects: Array<() => void> = [];
+  let refreshGeneration = 0;
+  let lastViewportWidth = window.innerWidth;
+  let destroyed = false;
+
+  const clearCardEffects = () => {
+    destroyCardEffects.forEach((destroy) => destroy());
+    destroyCardEffects = [];
+  };
+
+  const refreshCardEffects = async () => {
+    const generation = ++refreshGeneration;
+    await document.fonts.ready;
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    if (destroyed || generation !== refreshGeneration) return;
+
+    clearCardEffects();
+    destroyCardEffects = sections.map((section) => initEditorialCardEffects(section, revealedCards));
+    ScrollTrigger.refresh();
+  };
+
+  const settledRefresh = createSettledViewportTask(() => { void refreshCardEffects(); });
+
+  const onResize = () => {
+    const nextWidth = window.innerWidth;
+    if (Math.abs(nextWidth - lastViewportWidth) < 8) return;
+    lastViewportWidth = nextWidth;
+    settledRefresh.schedule();
+  };
   const selectedWork = sections.find((section) => section.classList.contains('selected-work'));
   const storiesSection = sections.find((section) => section.classList.contains('stories'));
   const destroyWorkCardHover = selectedWork
@@ -395,9 +493,16 @@ export function initEditorialSections() {
         indicatorSelector: '.story-card__read',
       })
     : () => undefined;
+  window.addEventListener('resize', onResize, { passive: true });
   return {
+    refresh: refreshCardEffects,
     destroy: () => {
+      destroyed = true;
+      refreshGeneration += 1;
+      settledRefresh.cancel();
+      window.removeEventListener('resize', onResize);
       destroyers.forEach((destroy) => destroy());
+      clearCardEffects();
       destroyWorkCardHover();
       destroyStoryCardHover();
     },
