@@ -481,7 +481,7 @@ body.is-menu-open .site-header { opacity: 0; visibility: hidden; pointer-events:
 .site-menu[data-menu-state='open'] { pointer-events: auto; }
 .site-menu[data-menu-state='opening'],
 .site-menu[data-menu-state='closing'] { pointer-events: none; }
-.site-menu__background { position: absolute; inset: 0; background: var(--paper); transform-origin: left center; }
+.site-menu__background { position: absolute; inset: 0; background: var(--paper); transform-origin: right center; }
 .site-menu__content { position: absolute; inset: 0; z-index: 1; padding: max(var(--header-pad), env(safe-area-inset-top)) max(var(--header-pad), env(safe-area-inset-right)) max(1rem, env(safe-area-inset-bottom)) max(var(--header-pad), env(safe-area-inset-left)); }
 .site-menu__header { position: relative; z-index: 2; display: flex; justify-content: space-between; align-items: flex-start; height: 3.75rem; }
 .menu-close { position: static; padding: .35rem 0 .35rem .5rem; font-size: clamp(.9rem, 1.2vw, 1.15rem); }

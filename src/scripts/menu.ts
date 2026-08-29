@@ -143,7 +143,7 @@ export function initMenu(player: VideoController) {
       closeButton.focus();
     } })
       .set(panel, { autoAlpha: 1, pointerEvents: 'none' })
-      .set(background, { scaleX: 0, transformOrigin: 'left center' })
+      .set(background, { scaleX: 0, transformOrigin: 'right center' })
       .set([header, cards], { opacity: 0 })
       .to(background, { scaleX: 1, duration: 0.62, ease: 'power4.inOut' })
       .to(header, { opacity: 1, duration: 0.24, ease: 'power2.out' }, 0.16)
@@ -186,7 +186,7 @@ export function initMenu(player: VideoController) {
     })
       .to(cards, { y: '7vh', opacity: 0, duration: 0.24, stagger: 0.025, ease: 'power2.in' })
       .to(header, { opacity: 0, duration: 0.16 }, 0.08)
-      .to(background, { scaleX: 0, transformOrigin: 'left center', duration: 0.42, ease: 'power4.inOut' }, 0.16);
+      .to(background, { scaleX: 0, transformOrigin: 'right center', duration: 0.42, ease: 'power4.inOut' }, 0.16);
   };
 
   const onKeydown = (event: KeyboardEvent) => {
