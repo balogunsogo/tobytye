@@ -1,18 +1,36 @@
 import gsap from 'gsap';
 import ScrollTrigger from 'gsap/ScrollTrigger';
-import type { YouTubeController } from './youtube-player';
+import type { VideoController } from './video-player';
 
-export function initHeroScroll(player: YouTubeController) {
+export function initHeroScroll(player: VideoController) {
   const hero = document.querySelector<HTMLElement>('.hero')!;
   const media = document.querySelector<HTMLElement>('#hero-media')!;
-  const title = document.querySelector<HTMLElement>('#hero-title')!;
-  const header = document.querySelector<HTMLElement>('#site-header')!;
+  const headerControls = Array.from(document.querySelectorAll<HTMLElement>('#site-header .brand-link, #site-header .menu-trigger'));
+  const title = document.querySelector<HTMLElement>('#hero-title');
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
   let trigger: ScrollTrigger | null = null;
-  let headerTrigger: ScrollTrigger | null = null;
   let resizeTimer = 0;
   let lastWidth = window.innerWidth;
   let lastHeight = window.innerHeight;
+
+  const setHeroHeaderTheme = (videoBehindHeader: boolean) => {
+    const theme = videoBehindHeader ? 'dark' : 'light';
+    if (hero.dataset.headerTheme === theme) return;
+    hero.dataset.headerTheme = theme;
+    window.dispatchEvent(new CustomEvent('header-theme-change'));
+  };
+
+  const syncHeroHeaderTheme = () => {
+    const mediaBounds = media.getBoundingClientRect();
+    const videoBehindHeader = headerControls.length > 0 && headerControls.every((control) => {
+      const bounds = control.getBoundingClientRect();
+      return mediaBounds.top <= bounds.top
+        && mediaBounds.right >= bounds.right
+        && mediaBounds.bottom >= bounds.bottom
+        && mediaBounds.left <= bounds.left;
+    });
+    setHeroHeaderTheme(videoBehindHeader);
+  };
 
   const targetScale = () => {
     const rect = media.getBoundingClientRect();
@@ -24,18 +42,18 @@ export function initHeroScroll(player: YouTubeController) {
 
   const build = () => {
     trigger?.kill();
-    headerTrigger?.kill();
     trigger = null;
-    gsap.set([media, title], { clearProps: 'transform' });
-    header.classList.remove('is-over-video');
+    gsap.set(media, { clearProps: 'transform' });
+    if (title) gsap.set(title, { clearProps: 'transform' });
+    setHeroHeaderTheme(false);
     if (reduced.matches) return;
 
     const mobile = matchMedia('(max-width: 700px)').matches;
-    const timeline = gsap.timeline()
+    const timeline = gsap.timeline({ onUpdate: syncHeroHeaderTheme })
       .to({}, { duration: 0.1 })
-      .to(media, { scale: targetScale, duration: 0.65, ease: 'none' })
-      .to(title, { yPercent: mobile ? -5 : -10, letterSpacing: '-0.075em', duration: 0.55, ease: 'none' }, 0.18)
-      .to({}, { duration: 0.25 });
+      .to(media, { scale: targetScale, duration: 0.65, ease: 'none' });
+    if (title) timeline.to(title, { yPercent: mobile ? -5 : -10, letterSpacing: '-0.075em', duration: 0.55, ease: 'none' }, 0.18);
+    timeline.to({}, { duration: 0.25 });
 
     trigger = ScrollTrigger.create({
       trigger: hero,
@@ -46,16 +64,7 @@ export function initHeroScroll(player: YouTubeController) {
       animation: timeline,
       anticipatePin: 1,
       invalidateOnRefresh: true,
-      onUpdate: ({ progress }) => header.classList.toggle('is-over-video', progress > 0.48),
-      onLeave: () => header.classList.add('is-over-video'),
-      onEnterBack: () => header.classList.add('is-over-video'),
-      onLeaveBack: () => header.classList.remove('is-over-video'),
-    });
-    headerTrigger = ScrollTrigger.create({
-      trigger: '.creative',
-      start: 'top 18%',
-      onEnter: () => header.classList.remove('is-over-video'),
-      onLeaveBack: () => header.classList.add('is-over-video'),
+      onRefresh: syncHeroHeaderTheme,
     });
   };
 
@@ -97,7 +106,7 @@ export function initHeroScroll(player: YouTubeController) {
     refresh,
     destroy: () => {
       trigger?.kill();
-      headerTrigger?.kill();
+      setHeroHeaderTheme(false);
       visibility.disconnect();
       reduced.removeEventListener('change', refresh);
       window.removeEventListener('resize', onResize);

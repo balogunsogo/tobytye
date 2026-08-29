@@ -1,11 +1,11 @@
 import gsap from 'gsap';
 import Flip from 'gsap/Flip';
-import type { YouTubeController } from './youtube-player';
+import type { VideoController } from './video-player';
 import { lockScroll, setPageInert, trapFocus } from './accessibility';
 
 type MenuState = 'closed' | 'opening' | 'open' | 'closing';
 
-export function initMenu(player: YouTubeController) {
+export function initMenu(player: VideoController) {
   const panel = document.querySelector<HTMLElement>('#site-menu')!;
   const background = panel.querySelector<HTMLElement>('.site-menu__background')!;
   const trigger = document.querySelector<HTMLButtonElement>('#menu-trigger')!;
@@ -44,6 +44,7 @@ export function initMenu(player: YouTubeController) {
     if (open || animating || cinemaIsOpen()) return;
     open = true;
     animating = true;
+    document.body.classList.add('is-menu-open');
     setMenuState('opening');
     panel.inert = false;
     restoreScroll = lockScroll();
@@ -78,6 +79,7 @@ export function initMenu(player: YouTubeController) {
         open = false;
         animating = false;
         panel.classList.remove('is-open');
+        document.body.classList.remove('is-menu-open');
         panel.setAttribute('aria-hidden', 'true');
         setMenuState('closed');
         gsap.set(panel, { autoAlpha: 0, pointerEvents: 'none' });
@@ -148,6 +150,7 @@ export function initMenu(player: YouTubeController) {
     setCinemaOpen: (getter: () => boolean) => { cinemaIsOpen = getter; },
     close: () => closeMenu(),
     destroy: () => {
+      document.body.classList.remove('is-menu-open');
       mobileObserver?.disconnect();
       isDesktop.removeEventListener('change', setupMobileEmphasis);
       document.removeEventListener('keydown', onKeydown);

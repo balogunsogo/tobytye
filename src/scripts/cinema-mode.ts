@@ -1,5 +1,5 @@
 import gsap from 'gsap';
-import type { YouTubeController } from './youtube-player';
+import type { VideoController } from './video-player';
 import { lockScroll, setPageInert, trapFocus } from './accessibility';
 
 const formatTime = (seconds: number) => {
@@ -8,7 +8,7 @@ const formatTime = (seconds: number) => {
   return `${mins}:${Math.floor(seconds % 60).toString().padStart(2, '0')}`;
 };
 
-export function initCinemaMode(player: YouTubeController, menuIsOpen: () => boolean) {
+export function initCinemaMode(player: VideoController, menuIsOpen: () => boolean) {
   const media = document.querySelector<HTMLElement>('#hero-media')!;
   const trigger = document.querySelector<HTMLButtonElement>('#watch-button')!;
   const controls = document.querySelector<HTMLElement>('#cinema-controls')!;
