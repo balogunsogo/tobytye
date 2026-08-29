@@ -19,49 +19,107 @@ export function initMenu(player: VideoController) {
   let animating = false;
   let restoreScroll: (() => void) | null = null;
   let cinemaIsOpen = () => false;
-  let activeIndex = -1;
+  let activeIndex: number | null = null;
   let cardFlip: gsap.core.Timeline | null = null;
   let mobileObserver: IntersectionObserver | null = null;
+  let handoffTimer = 0;
+  let pointerX = 0;
+  let pointerY = 0;
 
   const setMenuState = (state: MenuState) => { panel.dataset.menuState = state; };
   panel.inert = true;
   gsap.set(panel, { autoAlpha: 0, pointerEvents: 'none' });
 
-  const setActiveCard = (index: number, animate = true) => {
-    if (index === activeIndex || !isDesktop.matches) return;
+  const setActiveCard = (nextIndex: number | null, animate = true) => {
+    if (nextIndex === activeIndex || !isDesktop.matches) return;
 
-    const state = animate ? Flip.getState(cards, { simple: true }) : null;
+    const state = animate ? Flip.getState(cards) : null;
     cardFlip?.kill();
+    Flip.killFlipsOf(cards, false);
     cardFlip = null;
-    activeIndex = index;
+    activeIndex = nextIndex;
     cards.forEach((card, cardIndex) => {
-      card.classList.toggle('is-active', index === cardIndex);
-      card.classList.toggle('is-muted', index >= 0 && index !== cardIndex);
+      card.classList.toggle('is-active', nextIndex === cardIndex);
+      card.classList.toggle('is-muted', nextIndex !== null && nextIndex !== cardIndex);
     });
 
     if (state) {
-      cardFlip = Flip.from(state, {
-        duration: 0.42,
-        ease: 'power2.inOut',
-        absolute: false,
+      const nextFlip = Flip.from(state, {
+        duration: 0.6,
+        ease: 'power3.inOut',
+        absolute: true,
         nested: true,
         prune: true,
         scale: true,
-        simple: true,
-        onComplete: () => { cardFlip = null; },
+        onComplete: () => {
+          if (cardFlip === nextFlip) cardFlip = null;
+        },
       });
+      cardFlip = nextFlip;
     } else {
-      Flip.killFlipsOf(cards);
       gsap.set(cards, { clearProps: 'transform' });
     }
 
     gsap.to(images, {
-      scale: (cardIndex) => cardIndex === index ? 1.045 : 1,
-      opacity: (cardIndex) => index >= 0 && cardIndex !== index ? 0.72 : 1,
+      scale: (cardIndex) => cardIndex === nextIndex ? 1.045 : 1,
+      opacity: (cardIndex) => nextIndex !== null && cardIndex !== nextIndex ? 0.72 : 1,
       duration: animate ? 0.36 : 0,
       ease: 'power2.inOut',
       overwrite: true,
     });
+  };
+
+  const cancelHandoff = () => {
+    window.clearTimeout(handoffTimer);
+    handoffTimer = 0;
+  };
+
+  const cardIndexAtPointer = () => {
+    const target = document.elementFromPoint(pointerX, pointerY);
+    const card = target instanceof Element ? target.closest<HTMLAnchorElement>('[data-menu-card]') : null;
+    return card && row.contains(card) ? cards.indexOf(card) : -1;
+  };
+
+  const isInsideCardHandoffBand = () => {
+    const bounds = cards.map((card) => card.getBoundingClientRect());
+    const left = Math.min(...bounds.map((rect) => rect.left));
+    const right = Math.max(...bounds.map((rect) => rect.right));
+    const top = Math.min(...bounds.map((rect) => rect.top));
+    const bottom = Math.max(...bounds.map((rect) => rect.bottom));
+    return pointerX >= left && pointerX <= right && pointerY >= top && pointerY <= bottom;
+  };
+
+  const scheduleGapReset = () => {
+    cancelHandoff();
+    handoffTimer = window.setTimeout(() => {
+      handoffTimer = 0;
+      const nextIndex = cardIndexAtPointer();
+      setActiveCard(nextIndex >= 0 ? nextIndex : null);
+    }, 90);
+  };
+
+  const onRowPointerMove = (event: PointerEvent) => {
+    if (!isDesktop.matches) return;
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    const target = event.target;
+    const card = target instanceof Element ? target.closest<HTMLAnchorElement>('[data-menu-card]') : null;
+    const nextIndex = card && row.contains(card) ? cards.indexOf(card) : -1;
+    if (nextIndex >= 0) {
+      cancelHandoff();
+      setActiveCard(nextIndex);
+    } else if (activeIndex !== null && isInsideCardHandoffBand()) {
+      scheduleGapReset();
+    } else {
+      cancelHandoff();
+      setActiveCard(null);
+    }
+  };
+
+  const onRowPointerLeave = () => {
+    if (!isDesktop.matches) return;
+    cancelHandoff();
+    setActiveCard(null);
   };
 
   const openMenu = () => {
@@ -114,7 +172,7 @@ export function initMenu(player: VideoController) {
         window.dispatchEvent(new CustomEvent('site-overlay', { detail: { open: false } }));
         player.mute();
         player.play();
-        setActiveCard(-1, false);
+        setActiveCard(null, false);
         if (destination) {
           const target = document.querySelector<HTMLElement>(destination);
           if (target) {
@@ -147,7 +205,7 @@ export function initMenu(player: VideoController) {
     cardFlip = null;
     Flip.killFlipsOf(cards);
     cards.forEach((card) => card.classList.remove('is-near-center'));
-    activeIndex = -1;
+    activeIndex = null;
     cards.forEach((card) => card.classList.remove('is-active', 'is-muted'));
     gsap.killTweensOf(images);
     gsap.set(images, { clearProps: 'transform,opacity' });
@@ -161,16 +219,9 @@ export function initMenu(player: VideoController) {
   trigger.addEventListener('click', openMenu);
   closeButton.addEventListener('click', () => closeMenu());
   document.addEventListener('keydown', onKeydown);
-  const cardEnterHandlers = cards.map((_card, index) => () => setActiveCard(index));
-  const cardLeaveHandlers = cards.map((_card, index) => (event: PointerEvent) => {
-    if (activeIndex !== index) return;
-    const next = event.relatedTarget;
-    if (next instanceof Element && next.closest('[data-menu-card]')) return;
-    setActiveCard(-1);
-  });
-  cards.forEach((card, index) => {
-    card.addEventListener('pointerenter', cardEnterHandlers[index]);
-    card.addEventListener('pointerleave', cardLeaveHandlers[index]);
+  row.addEventListener('pointermove', onRowPointerMove);
+  row.addEventListener('pointerleave', onRowPointerLeave);
+  cards.forEach((card) => {
     card.addEventListener('click', (event) => {
       event.preventDefault();
       closeMenu(card.hash);
@@ -189,10 +240,9 @@ export function initMenu(player: VideoController) {
       isDesktop.removeEventListener('change', setupMobileEmphasis);
       document.removeEventListener('keydown', onKeydown);
       trigger.removeEventListener('click', openMenu);
-      cards.forEach((card, index) => {
-        card.removeEventListener('pointerenter', cardEnterHandlers[index]);
-        card.removeEventListener('pointerleave', cardLeaveHandlers[index]);
-      });
+      row.removeEventListener('pointermove', onRowPointerMove);
+      row.removeEventListener('pointerleave', onRowPointerLeave);
+      cancelHandoff();
       cardFlip?.kill();
       Flip.killFlipsOf(cards);
     },
