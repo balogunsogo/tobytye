@@ -1,6 +1,5 @@
 import gsap from 'gsap';
 
-const loaderImages = Array.from({ length: 6 }, (_, index) => `/assets/${encodeURIComponent(`Preloader ${index + 1}.png`)}`);
 const sceneImages = Array.from({ length: 3 }, (_, index) => `/assets/${encodeURIComponent(`Animated ${index + 1}.png`)}`);
 const menuImages = Array.from({ length: 4 }, (_, index) => `/assets/${encodeURIComponent(`Menu ${index + 1}.png`)}`);
 
@@ -15,6 +14,37 @@ const loadImage = (src: string) => new Promise<void>((resolve) => {
   image.src = src;
 });
 
+const waitForImage = (image: HTMLImageElement) => new Promise<boolean>((resolve) => {
+  if (image.complete) {
+    resolve(image.naturalWidth > 0);
+    return;
+  }
+  const finish = (loaded: boolean) => {
+    image.removeEventListener('load', onLoad);
+    image.removeEventListener('error', onError);
+    resolve(loaded);
+  };
+  const onLoad = () => finish(true);
+  const onError = () => finish(false);
+  image.addEventListener('load', onLoad, { once: true });
+  image.addEventListener('error', onError, { once: true });
+});
+
+const loadLoaderFrame = async (image: HTMLImageElement) => {
+  let loaded = await waitForImage(image);
+  if (!loaded) {
+    const fallback = image.dataset.fallbackSrc;
+    image.closest('picture')?.querySelectorAll('source').forEach((source) => source.remove());
+    if (fallback) {
+      image.src = fallback;
+      loaded = await waitForImage(image);
+    }
+  }
+  if (!loaded) return;
+  try { await image.decode(); } catch { /* A loaded frame can still be displayed if decode() rejects. */ }
+  image.classList.add('is-ready');
+};
+
 const waitForFonts = async () => {
   if (!document.fonts) return;
   await Promise.allSettled([
@@ -27,14 +57,15 @@ const waitForFonts = async () => {
 export async function startLoader(playerReady: Promise<boolean>): Promise<void> {
   const loader = document.querySelector<HTMLElement>('#loader');
   const counter = document.querySelector<HTMLOutputElement>('#loader-counter');
-  const layers = Array.from(document.querySelectorAll<HTMLElement>('[data-loader-image]'));
+  const layers = Array.from(document.querySelectorAll<HTMLImageElement>('[data-loader-image]'));
   if (!loader || !counter) return;
   document.documentElement.classList.add('is-loading');
   document.body.classList.add('is-loading');
 
   const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const loaderFrames = layers.map(loadLoaderFrame);
   const milestones = [
-    ...loaderImages.map(loadImage),
+    ...loaderFrames,
     ...sceneImages.map(loadImage),
     ...menuImages.map(loadImage),
     waitForFonts(),

@@ -32,6 +32,7 @@ export class VideoController {
     this.prepareAmbientPlayback();
     this.bindEvents();
     this.video.dataset.mediaState = this.state;
+    this.selectInitialSource();
 
     if (this.video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
       this.handleReady();
@@ -40,6 +41,14 @@ export class VideoController {
     }
 
     window.setTimeout(() => this.finishReady(false), 5500);
+  }
+
+  private selectInitialSource(): void {
+    const useMobileSource = matchMedia('(max-width: 700px)').matches;
+    const source = useMobileSource ? this.video.dataset.mobileSrc : this.video.dataset.desktopSrc;
+    if (!source) return;
+    this.video.src = source;
+    this.video.dataset.selectedSource = useMobileSource ? 'mobile' : 'desktop';
   }
 
   private bindEvents(): void {

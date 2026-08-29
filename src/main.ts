@@ -16,12 +16,19 @@ ScrollTrigger.config({ ignoreMobileResize: true });
 
 const asset = (name: string) => `/assets/${encodeURIComponent(name)}`;
 const logo = (decorative = false) => `<span class="brand" ${decorative ? 'aria-hidden="true"' : 'role="img" aria-label="Toby&Tye"'}></span>`;
+const useMobileLoaderFrames = matchMedia('(max-width: 700px)').matches;
+const loaderFrame = (index: number) => {
+  const fallback = asset(`Preloader ${index}.png`);
+  const optimized = asset(`Preloader ${index}${useMobileLoaderFrames ? '-mobile' : ''}.webp`);
+  const priority = index === 1 ? ' fetchpriority="high"' : '';
+  return `<picture data-loader-layer><source srcset="${optimized}" type="image/webp" /><img src="${fallback}" data-fallback-src="${fallback}" alt="" width="335" height="360" decoding="async" data-loader-image${priority} /></picture>`;
+};
 
 document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
   <div class="loader" id="loader" aria-live="polite" aria-label="Loading Toby&Tye">
     ${logo()}
     <div class="loader__frame" aria-hidden="true">
-      ${Array.from({ length: 6 }, (_, index) => `<img src="${asset(`Preloader ${index + 1}.png`)}" alt="" data-loader-image />`).join('')}
+      ${Array.from({ length: 6 }, (_, index) => loaderFrame(index + 1)).join('')}
     </div>
     <output class="loader__counter" id="loader-counter">0%</output>
   </div>
@@ -36,7 +43,7 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     <section class="hero" id="home" data-header-theme="light">
       <div class="hero-stage">
         <div class="hero-media" id="hero-media">
-          <video class="hero-video" id="hero-video" src="/assets/gamp-animation.mp4" autoplay muted loop playsinline preload="auto" disablepictureinpicture></video>
+          <video class="hero-video" id="hero-video" data-desktop-src="/assets/gamp-animation.mp4" data-mobile-src="/assets/gamp-animation-mobile.mp4" autoplay muted loop playsinline preload="auto" disablepictureinpicture></video>
           <div class="hero-shade" aria-hidden="true"></div>
           <div class="watch-button-wrap">
             <button class="watch-button" id="watch-button" type="button" aria-label="Watch video"><span class="watch-button__icon" aria-hidden="true"></span></button>
@@ -93,11 +100,9 @@ const appReady = async () => {
   await startLoader(player.ready);
   player.retryMutedAutoplay();
   heroScroll.refresh();
-  ScrollTrigger.refresh();
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
   await creative.refresh();
   await editorialSections.refresh();
-  ScrollTrigger.refresh();
 };
 
 void appReady();
