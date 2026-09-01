@@ -7,12 +7,18 @@ type OrbitPoint = { x: number; y: number; z: number; scale: number; opacity: num
 
 export function initCreativeScene() {
   const section = document.querySelector<HTMLElement>('.creative')!;
-  const composition = section.querySelector<HTMLElement>('.card-composition')!;
+  const composition = section.querySelector<HTMLElement>('[data-creative-stage], .card-composition')!;
+  const cube = section.querySelector<HTMLElement>('[data-creative-cube]');
+  const cubeTilt = section.querySelector<HTMLElement>('[data-creative-cube-tilt]');
+  /* Previous three-card orbit selector preserved for rollback.
   const cards = Array.from(section.querySelectorAll<HTMLElement>('[data-orbit-card]'));
+  */
+  const cards: HTMLElement[] = [];
   const headingLines = Array.from(section.querySelectorAll<HTMLElement>('h2 .line-mask > span'));
   const copy = section.querySelector<HTMLElement>('.creative-copy')!;
   const copyText = copy.textContent?.replace(/\s+/g, ' ').trim() ?? '';
   const reduced = matchMedia('(prefers-reduced-motion: reduce)');
+  const finePointer = matchMedia('(hover: hover) and (pointer: fine)');
   let entered = false;
   let assembled = false;
   let visible = false;
@@ -84,8 +90,34 @@ export function initCreativeScene() {
     lastTick = 0;
   };
 
+  const tiltX = cubeTilt ? gsap.quickTo(cubeTilt, 'rotationX', { duration: 1.1, ease: 'power3.out' }) : null;
+  const tiltY = cubeTilt ? gsap.quickTo(cubeTilt, 'rotationY', { duration: 1.1, ease: 'power3.out' }) : null;
+  const resetCubeTilt = (immediate = false) => {
+    if (!cubeTilt) return;
+    if (immediate) {
+      tiltX?.(0);
+      tiltY?.(0);
+      gsap.set(cubeTilt, { rotationX: 0, rotationY: 0 });
+      return;
+    }
+    tiltX?.(0);
+    tiltY?.(0);
+  };
+
+  const onCubePointerMove = (event: PointerEvent) => {
+    if (!visible || overlayOpen || reduced.matches || !finePointer.matches) return;
+    const normalizedX = ((event.clientX / window.innerWidth) - 0.5) * 2;
+    const normalizedY = ((event.clientY / window.innerHeight) - 0.5) * 2;
+    tiltX?.(gsap.utils.clamp(-8, 8, normalizedY * -8));
+    tiltY?.(gsap.utils.clamp(-12, 12, normalizedX * 12));
+  };
+  const onPointerLeave = () => resetCubeTilt();
+
   const syncOrbitState = () => {
-    const shouldPlay = visible && !overlayOpen && entered && assembled && !document.hidden && !reduced.matches;
+    const shouldAnimateCube = visible && !overlayOpen && !document.hidden && !reduced.matches;
+    cube?.classList.toggle('is-paused', !shouldAnimateCube);
+    if (!shouldAnimateCube) resetCubeTilt();
+    const shouldPlay = cards.length > 0 && visible && !overlayOpen && entered && assembled && !document.hidden && !reduced.matches;
     if (shouldPlay && !tickerActive) {
       tickerActive = true;
       cards.forEach((card) => { card.style.willChange = 'transform, opacity'; });
@@ -286,14 +318,24 @@ export function initCreativeScene() {
       entered = true;
       intro?.play();
     }
+    if (reduced.matches) resetCubeTilt(true);
+    syncOrbitState();
+  };
+  const onFinePointerChange = () => {
+    if (!finePointer.matches) resetCubeTilt(true);
   };
 
+  cube?.classList.add('is-paused');
   prepare();
   observer.observe(composition);
   window.addEventListener('site-overlay', onOverlay);
   window.addEventListener('resize', onResize, { passive: true });
+  window.addEventListener('pointermove', onCubePointerMove, { passive: true });
+  window.addEventListener('blur', onPointerLeave);
+  document.documentElement.addEventListener('pointerleave', onPointerLeave);
   document.addEventListener('visibilitychange', onVisibility);
   reduced.addEventListener('change', onReduced);
+  finePointer.addEventListener('change', onFinePointerChange);
 
   return {
     refresh: async () => {
@@ -313,10 +355,17 @@ export function initCreativeScene() {
       copyTween?.kill();
       gsap.killTweensOf(copyLines);
       stopOrbit();
+      cube?.classList.add('is-paused');
+      resetCubeTilt(true);
+      if (cubeTilt) gsap.killTweensOf(cubeTilt);
       window.removeEventListener('site-overlay', onOverlay);
       window.removeEventListener('resize', onResize);
+      window.removeEventListener('pointermove', onCubePointerMove);
+      window.removeEventListener('blur', onPointerLeave);
+      document.documentElement.removeEventListener('pointerleave', onPointerLeave);
       document.removeEventListener('visibilitychange', onVisibility);
       reduced.removeEventListener('change', onReduced);
+      finePointer.removeEventListener('change', onFinePointerChange);
     },
   };
 }

@@ -158,7 +158,7 @@ const artwork = (image: string, alt: string, shape: ArtworkShape, imageClass: st
 
 export const renderSelectedWork = () => `
   <section class="selected-work" id="work" aria-labelledby="selected-work-title" data-header-theme="light">
-    <h2 class="editorial-heading" id="selected-work-title"><span class="line-mask"><span>SELECTED <em>WORK</em></span></span></h2>
+    <h2 class="editorial-heading" id="selected-work-title"><span class="line-mask"><span>Selected <em>Work</em></span></span></h2>
     <div class="selected-work__grid" role="list">
       ${selectedProjects.map((project) => {
         const projectId = `work-${contentSlug(project.title)}`;
@@ -204,6 +204,11 @@ export const renderStories = () => `
         `;
       }).join('')}
     </div>
+    <button class="stories__more" type="button" aria-label="See more stories">
+      <span class="stories__more-label" aria-hidden="true">
+        ${['See', 'More'].map((word) => `<span class="stories__more-word"><span class="stories__more-word-track"><span>${word}</span><span>${word}</span></span></span>`).join('')}
+      </span>
+    </button>
   </section>
 `;
 

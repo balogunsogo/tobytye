@@ -62,18 +62,25 @@ document.querySelector<HTMLDivElement>('#app')!.innerHTML = `
     </section>
 
     <section class="creative" id="who-we-are" aria-labelledby="creative-title" data-header-theme="dark">
-      <h2 id="creative-title"><span class="line-mask"><span>WE ARE YOUR CREATIVE</span></span><span class="line-mask"><span>INTELLIGENCE <em>PARTNER</em></span></span></h2>
+      <h2 id="creative-title"><span class="line-mask"><span>We are your creative</span></span><span class="line-mask"><span>Intelligence <em>Partner</em></span></span></h2>
       <div class="creative-grid">
+        <!-- Previous three-card orbit preserved for rollback.
         <div class="card-composition" aria-label="Selected creative work">
           ${[1, 2, 3].map((n) => `<img src="${asset(`Animated ${n}.png`)}" alt="Creative project artwork ${n}" loading="lazy" decoding="async" data-orbit-card />`).join('')}
+        </div>
+        -->
+        <div class="creative-cube-stage" data-creative-stage role="img" aria-label="Rotating cube featuring selected creative work">
+          <div class="creative-cube-tilt" data-creative-cube-tilt>
+            <div class="creative-cube" data-creative-cube aria-hidden="true">
+              ${(['front', 'right', 'back', 'left', 'top', 'bottom'] as const).map((face, index) => `<span class="creative-cube__face creative-cube__face--${face}"><img src="${asset(`Animated ${(index % 3) + 1}.png`)}" alt="" loading="lazy" decoding="async" /></span>`).join('')}
+            </div>
+          </div>
         </div>
         <p class="creative-copy"><span class="line-mask"><span>Built for brands that refuse to blend in, we combine creative vision with rigorous intelligence and help ambitious brands transform perception into lasting impact.</span></span></p>
       </div>
     </section>
     ${renderSelectedWork()}
     ${renderStories()}
-    <section class="placeholder-section" id="what-we-do" data-header-theme="light"><p>01 / WHAT WE DO</p><h2>Ideas built to move.</h2></section>
-    <section class="placeholder-section" id="contact" data-header-theme="light"><p>03 / CONTACT</p><h2>Let’s make an impact.</h2><a href="mailto:hello@tobyandtye.com">hello@tobyandtye.com</a></section>
   </main>
 
   <nav class="site-menu" id="site-menu" data-menu-state="closed" aria-label="Primary navigation" aria-hidden="true" role="dialog" aria-modal="true" inert>
