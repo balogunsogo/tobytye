@@ -1,9 +1,9 @@
 import gsap from 'gsap';
-import Flip from 'gsap/Flip';
 import type { VideoController } from './video-player';
 import { lockScroll, setPageInert, trapFocus } from './accessibility';
 
 type MenuState = 'closed' | 'opening' | 'open' | 'closing';
+type CardGeometry = { left: number; bottom: number; width: number; height: number };
 
 export function initMenu(player: VideoController) {
   const panel = document.querySelector<HTMLElement>('#site-menu')!;
@@ -20,44 +20,107 @@ export function initMenu(player: VideoController) {
   let restoreScroll: (() => void) | null = null;
   let cinemaIsOpen = () => false;
   let activeIndex: number | null = null;
-  let cardFlip: gsap.core.Timeline | null = null;
+  let cardLayoutTween: gsap.core.Tween | null = null;
+  let lockedCardGeometry: CardGeometry[] | null = null;
   let mobileObserver: IntersectionObserver | null = null;
-  let handoffTimer = 0;
-  let pointerX = 0;
-  let pointerY = 0;
+  let hitArea: DOMRect | null = null;
 
   const setMenuState = (state: MenuState) => { panel.dataset.menuState = state; };
   panel.inert = true;
   gsap.set(panel, { autoAlpha: 0, pointerEvents: 'none' });
 
+  const unlockDesktopCardLayout = () => {
+    cardLayoutTween?.kill();
+    cardLayoutTween = null;
+    lockedCardGeometry = null;
+    row.classList.remove('has-locked-card-layout');
+    gsap.set(cards, { clearProps: 'position,left,bottom,width,height,flex,transform,transformOrigin' });
+  };
+
+  const lockDesktopCardLayout = () => {
+    if (!isDesktop.matches || lockedCardGeometry) return;
+    const rowBounds = row.getBoundingClientRect();
+    lockedCardGeometry = cards.map((card) => {
+      const bounds = card.getBoundingClientRect();
+      return {
+        left: bounds.left - rowBounds.left,
+        bottom: rowBounds.bottom - bounds.bottom,
+        width: bounds.width,
+        height: bounds.height,
+      };
+    });
+    row.classList.add('has-locked-card-layout');
+    gsap.set(cards, {
+      position: 'absolute',
+      left: (cardIndex) => lockedCardGeometry![cardIndex].left,
+      bottom: (cardIndex) => lockedCardGeometry![cardIndex].bottom,
+      width: (cardIndex) => lockedCardGeometry![cardIndex].width,
+      height: (cardIndex) => lockedCardGeometry![cardIndex].height,
+      flex: 'none',
+      x: 0,
+      y: 0,
+    });
+  };
+
+  const targetCardGeometry = (nextIndex: number | null) => {
+    if (!lockedCardGeometry) return [];
+    const firstLeft = lockedCardGeometry[0].left;
+    const gap = lockedCardGeometry.length > 1
+      ? lockedCardGeometry[1].left - lockedCardGeometry[0].left - lockedCardGeometry[0].width
+      : 0;
+    const availableWidth = lockedCardGeometry.reduce((total, geometry) => total + geometry.width, 0);
+    const totalWeight = nextIndex === null ? cards.length : cards.length + 0.5;
+    const unitWidth = availableWidth / totalWeight;
+    let left = firstLeft;
+
+    return cards.map((_, cardIndex) => {
+      const active = cardIndex === nextIndex;
+      const width = unitWidth * (active ? 1.5 : 1);
+      const height = nextIndex === null
+        ? Math.min(window.innerHeight * 0.44, 430)
+        : active
+          ? Math.min(window.innerHeight * 0.58, 560)
+          : Math.min(window.innerHeight * 0.42, 410);
+      const geometry = { left, bottom: lockedCardGeometry![cardIndex].bottom, width, height };
+      left += width + gap;
+      return geometry;
+    });
+  };
+
   const setActiveCard = (nextIndex: number | null, animate = true) => {
     if (nextIndex === activeIndex || !isDesktop.matches) return;
 
-    const state = animate ? Flip.getState(cards) : null;
-    cardFlip?.kill();
-    Flip.killFlipsOf(cards, false);
-    cardFlip = null;
+    if (open) lockDesktopCardLayout();
     activeIndex = nextIndex;
     cards.forEach((card, cardIndex) => {
       card.classList.toggle('is-active', nextIndex === cardIndex);
       card.classList.toggle('is-muted', nextIndex !== null && nextIndex !== cardIndex);
     });
 
-    if (state) {
-      const nextFlip = Flip.from(state, {
-        duration: 0.6,
-        ease: 'power3.inOut',
-        absolute: true,
-        nested: true,
-        prune: true,
-        scale: true,
-        onComplete: () => {
-          if (cardFlip === nextFlip) cardFlip = null;
-        },
-      });
-      cardFlip = nextFlip;
-    } else {
-      gsap.set(cards, { clearProps: 'transform' });
+    const targetGeometry = targetCardGeometry(nextIndex);
+    cardLayoutTween?.kill();
+    cardLayoutTween = null;
+    if (targetGeometry.length) {
+      const layoutVars = {
+        left: (cardIndex: number) => targetGeometry[cardIndex].left,
+        bottom: (cardIndex: number) => targetGeometry[cardIndex].bottom,
+        width: (cardIndex: number) => targetGeometry[cardIndex].width,
+        height: (cardIndex: number) => targetGeometry[cardIndex].height,
+      };
+      if (animate) {
+        const nextTween = gsap.to(cards, {
+          ...layoutVars,
+          duration: 0.6,
+          ease: 'power3.inOut',
+          overwrite: true,
+          onComplete: () => {
+            if (cardLayoutTween === nextTween) cardLayoutTween = null;
+          },
+        });
+        cardLayoutTween = nextTween;
+      } else {
+        gsap.set(cards, layoutVars);
+      }
     }
 
     gsap.to(images, {
@@ -69,56 +132,35 @@ export function initMenu(player: VideoController) {
     });
   };
 
-  const cancelHandoff = () => {
-    window.clearTimeout(handoffTimer);
-    handoffTimer = 0;
-  };
-
-  const cardIndexAtPointer = () => {
-    const target = document.elementFromPoint(pointerX, pointerY);
-    const card = target instanceof Element ? target.closest<HTMLAnchorElement>('[data-menu-card]') : null;
-    return card && row.contains(card) ? cards.indexOf(card) : -1;
-  };
-
-  const isInsideCardHandoffBand = () => {
-    const bounds = cards.map((card) => card.getBoundingClientRect());
-    const left = Math.min(...bounds.map((rect) => rect.left));
-    const right = Math.max(...bounds.map((rect) => rect.right));
-    const top = Math.min(...bounds.map((rect) => rect.top));
-    const bottom = Math.max(...bounds.map((rect) => rect.bottom));
-    return pointerX >= left && pointerX <= right && pointerY >= top && pointerY <= bottom;
-  };
-
-  const scheduleGapReset = () => {
-    cancelHandoff();
-    handoffTimer = window.setTimeout(() => {
-      handoffTimer = 0;
-      const nextIndex = cardIndexAtPointer();
-      setActiveCard(nextIndex >= 0 ? nextIndex : null);
-    }, 90);
+  const measureHitArea = () => {
+    hitArea = row.getBoundingClientRect();
   };
 
   const onRowPointerMove = (event: PointerEvent) => {
     if (!isDesktop.matches) return;
-    pointerX = event.clientX;
-    pointerY = event.clientY;
-    const target = event.target;
-    const card = target instanceof Element ? target.closest<HTMLAnchorElement>('[data-menu-card]') : null;
-    const nextIndex = card && row.contains(card) ? cards.indexOf(card) : -1;
-    if (nextIndex >= 0) {
-      cancelHandoff();
-      setActiveCard(nextIndex);
-    } else if (activeIndex !== null && isInsideCardHandoffBand()) {
-      scheduleGapReset();
-    } else {
-      cancelHandoff();
+    if (!hitArea) measureHitArea();
+    if (!hitArea) return;
+
+    const activeHeight = Math.min(window.innerHeight * 0.58, 560);
+    const insideCardBand = event.clientX >= hitArea.left
+      && event.clientX <= hitArea.right
+      && event.clientY >= hitArea.bottom - activeHeight
+      && event.clientY <= hitArea.bottom;
+
+    if (!insideCardBand) {
       setActiveCard(null);
+      return;
     }
+
+    // Stable equal-width lanes include the CSS gaps and never resize with the
+    // visual cards, preventing hover-boundary feedback during the tween.
+    const progress = (event.clientX - hitArea.left) / hitArea.width;
+    const nextIndex = Math.min(cards.length - 1, Math.max(0, Math.floor(progress * cards.length)));
+    setActiveCard(nextIndex);
   };
 
   const onRowPointerLeave = () => {
     if (!isDesktop.matches) return;
-    cancelHandoff();
     setActiveCard(null);
   };
 
@@ -139,7 +181,9 @@ export function initMenu(player: VideoController) {
     gsap.timeline({ onComplete: () => {
       animating = false;
       setMenuState('open');
+      lockDesktopCardLayout();
       gsap.set(panel, { pointerEvents: 'auto' });
+      measureHitArea();
       closeButton.focus();
     } })
       .set(panel, { autoAlpha: 1, pointerEvents: 'none' })
@@ -173,6 +217,7 @@ export function initMenu(player: VideoController) {
         player.mute();
         player.play();
         setActiveCard(null, false);
+        unlockDesktopCardLayout();
         if (destination) {
           const target = document.querySelector<HTMLElement>(destination);
           if (target) {
@@ -201,15 +246,14 @@ export function initMenu(player: VideoController) {
 
   const setupMobileEmphasis = () => {
     mobileObserver?.disconnect();
-    cardFlip?.kill();
-    cardFlip = null;
-    Flip.killFlipsOf(cards);
+    unlockDesktopCardLayout();
     cards.forEach((card) => card.classList.remove('is-near-center'));
     activeIndex = null;
     cards.forEach((card) => card.classList.remove('is-active', 'is-muted'));
     gsap.killTweensOf(images);
     gsap.set(images, { clearProps: 'transform,opacity' });
     if (isDesktop.matches) return;
+    hitArea = null;
     mobileObserver = new IntersectionObserver((entries) => {
       entries.forEach((entry) => entry.target.classList.toggle('is-near-center', entry.isIntersecting));
     }, { root: row, rootMargin: '-36% 0px -36% 0px', threshold: 0.01 });
@@ -221,6 +265,17 @@ export function initMenu(player: VideoController) {
   document.addEventListener('keydown', onKeydown);
   row.addEventListener('pointermove', onRowPointerMove);
   row.addEventListener('pointerleave', onRowPointerLeave);
+  const onResize = () => {
+    hitArea = null;
+    if (!open || !isDesktop.matches) return;
+    const currentIndex = activeIndex;
+    unlockDesktopCardLayout();
+    lockDesktopCardLayout();
+    activeIndex = currentIndex === null ? 0 : null;
+    setActiveCard(currentIndex, false);
+    measureHitArea();
+  };
+  window.addEventListener('resize', onResize);
   cards.forEach((card) => {
     card.addEventListener('click', (event) => {
       event.preventDefault();
@@ -242,9 +297,8 @@ export function initMenu(player: VideoController) {
       trigger.removeEventListener('click', openMenu);
       row.removeEventListener('pointermove', onRowPointerMove);
       row.removeEventListener('pointerleave', onRowPointerLeave);
-      cancelHandoff();
-      cardFlip?.kill();
-      Flip.killFlipsOf(cards);
+      window.removeEventListener('resize', onResize);
+      unlockDesktopCardLayout();
     },
   };
 }

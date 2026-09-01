@@ -140,10 +140,16 @@ a { color: inherit; }
   &[data-theme='light'] { color: var(--ink); }
 }
 @supports (mix-blend-mode: difference) {
-  .site-header .brand-link,
-  .site-header .menu-trigger {
+  .site-header,
+  .site-header[data-theme='dark'],
+  .site-header[data-theme='light'] {
     color: #fff;
     mix-blend-mode: difference;
+  }
+  .site-header .brand-link,
+  .site-header .menu-trigger {
+    color: inherit;
+    mix-blend-mode: normal;
   }
 }
 body.is-cinema .site-header,
@@ -393,11 +399,7 @@ body.is-menu-open .site-header { opacity: 0; visibility: hidden; pointer-events:
   display: block;
   color: inherit;
   text-decoration: none;
-  opacity: 1;
-  transition: opacity .3s ease;
 }
-.selected-work__grid.is-hovering .work-card:not(.is-hovered) .work-card__link { opacity: .6; }
-.stories__grid.is-hovering .story-card:not(.is-hovered) .story-card__link { opacity: .6; }
 .work-card__view,
 .story-card__read {
   position: absolute;
@@ -623,9 +625,8 @@ body.is-menu-open .site-header { opacity: 0; visibility: hidden; pointer-events:
   text-decoration: none;
   transform-origin: bottom;
   will-change: transform;
-  &.is-active { flex-grow: 1.5; height: min(58vh, 560px); }
-  &.is-muted { flex-grow: 1; height: min(42vh, 410px); }
 }
+.menu-cards.has-locked-card-layout { position: relative; }
 .menu-card__label { position: absolute; left: 50%; bottom: calc(100% + .65rem); z-index: 20; display: block; opacity: 0; visibility: hidden; transform: translate(-50%, 6px); color: #000; font-size: .7rem; font-weight: 600; line-height: 1.2; letter-spacing: .05em; white-space: nowrap; pointer-events: none; transition: opacity .18s ease, transform .18s ease, visibility 0s linear .18s; }
 .menu-card.is-active .menu-card__label { opacity: 1; visibility: visible; transform: translate(-50%, 0); transition: opacity .18s ease, transform .18s ease, visibility 0s; }
 .menu-card__image { display: block; width: 100%; height: 100%; overflow: hidden; background: #ddd; }

@@ -336,16 +336,11 @@ const initCursorCardHover = (section: HTMLElement, options: CursorCardHoverOptio
 
   const activate = (card: HTMLElement) => {
     if (activeCard === card) return;
-    activeCard?.classList.remove('is-hovered');
     activeCard = card;
-    card.classList.add('is-hovered');
-    grid.classList.add('is-hovering');
   };
 
   const deactivate = () => {
-    activeCard?.classList.remove('is-hovered');
     activeCard = null;
-    grid.classList.remove('is-hovering');
   };
 
   cards.forEach((card) => {
